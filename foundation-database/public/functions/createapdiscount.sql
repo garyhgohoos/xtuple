@@ -98,7 +98,7 @@ BEGIN
     RETURN _result;
   END IF;
 
-  RETURN pJournalNumber;
+  RETURN _apopenid;
 
 END;
 $$ LANGUAGE 'plpgsql';
