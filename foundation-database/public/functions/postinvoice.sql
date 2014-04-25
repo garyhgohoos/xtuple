@@ -235,6 +235,7 @@ BEGIN
       _p.invchead_shipto_zipcode, _p.invchead_curr_id,
       _p.sequence, _r.invcitem_taxtype_id, _p.invchead_taxzone_id,
       _p.invchead_shipzone_id, _p.invchead_saletype_id );
+
     INSERT INTO cohisttax
     ( taxhist_parent_id, taxhist_taxtype_id, taxhist_tax_id,
       taxhist_basis, taxhist_basis_tax_id, taxhist_sequence,
@@ -316,6 +317,7 @@ BEGIN
       _p.invchead_shipto_zipcode, _p.invchead_curr_id,
       _p.sequence, _r.invcitem_taxtype_id, _p.invchead_taxzone_id,
       _p.invchead_shipzone_id, _p.invchead_saletype_id );
+
     INSERT INTO cohisttax
     ( taxhist_parent_id, taxhist_taxtype_id, taxhist_tax_id,
       taxhist_basis, taxhist_basis_tax_id, taxhist_sequence,
@@ -393,6 +395,7 @@ BEGIN
       _p.invchead_shipto_zipcode, _p.invchead_curr_id,
       _p.sequence, getFreightTaxtypeId(), _p.invchead_taxzone_id,
       _p.invchead_shipzone_id, _p.invchead_saletype_id );
+
     INSERT INTO cohisttax
     ( taxhist_parent_id, taxhist_taxtype_id, taxhist_tax_id,
       taxhist_basis, taxhist_basis_tax_id, taxhist_sequence,
@@ -505,6 +508,7 @@ BEGIN
       _p.invchead_shipto_zipcode, _p.invchead_curr_id,
       _p.sequence, getAdjustmentTaxtypeId(), _p.invchead_taxzone_id,
       _p.invchead_shipzone_id, _p.invchead_saletype_id );
+
     INSERT INTO cohisttax
     ( taxhist_parent_id, taxhist_taxtype_id, taxhist_tax_id,
       taxhist_basis, taxhist_basis_tax_id, taxhist_sequence,

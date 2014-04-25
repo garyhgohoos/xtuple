@@ -9,6 +9,7 @@ DECLARE
   _r RECORD;
   _t RECORD;
   _v RECORD;
+  _tax RECORD;
   _postToAR NUMERIC;
   _postToMisc NUMERIC;
   _postToCM NUMERIC;
@@ -16,8 +17,10 @@ DECLARE
   _posted NUMERIC := 0;
   _sequence INTEGER;
   _aropenid INTEGER;
+  _ardiscountid INTEGER := -1;
   _arMemoNumber TEXT;
   _arAccntid INTEGER;
+  _arApplyid INTEGER;
   _closed BOOLEAN;
   _debitAccntid INTEGER;
   _exchGain NUMERIC;
@@ -177,7 +180,7 @@ BEGIN
   
   --  Handle discount 
       IF (_r.cashrcptitem_discount_base > 0) THEN
-        PERFORM postCashReceiptDisc(_r.cashrcptitem_id, pJournalNumber);
+        SELECT postCashReceiptDisc(_r.cashrcptitem_id, pJournalNumber) INTO _ardiscountid;
       END IF;
      
   --  Update the aropen item to post the paid amount
@@ -192,38 +195,40 @@ BEGIN
       _posted := _posted + _r.cashrcptitem_amount;
  
   --  Record the cashrcpt application
-    IF (_r.aropen_doctype IN ('I','D')) THEN
-      INSERT INTO arapply
-      ( arapply_cust_id,
-        arapply_source_aropen_id, arapply_source_doctype, arapply_source_docnumber,
-        arapply_target_aropen_id, arapply_target_doctype, arapply_target_docnumber,
-        arapply_fundstype, arapply_refnumber, arapply_reftype, arapply_ref_id,
-        arapply_applied, arapply_closed,
-        arapply_postdate, arapply_distdate, arapply_journalnumber, arapply_username,
-        arapply_curr_id )
-      VALUES
-      ( _p.cashrcpt_cust_id,
-        -1, 'K', _p.cashrcpt_number,
-        _r.aropen_id, _r.aropen_doctype, _r.aropen_docnumber,
-        _p.cashrcpt_fundstype, _p.cashrcpt_docnumber, 'CRA', _r.cashrcptitem_id,
-        round(_r.cashrcptitem_amount, 2), _r.closed,
-        _p.applydate, _p.cashrcpt_distdate, pJournalNumber, getEffectiveXtUser(), _p.cashrcpt_curr_id);
-    ELSE
-      INSERT INTO arapply
-      ( arapply_cust_id,
-        arapply_source_aropen_id, arapply_source_doctype, arapply_source_docnumber,
-        arapply_target_aropen_id, arapply_target_doctype, arapply_target_docnumber,
-        arapply_fundstype, arapply_refnumber, arapply_reftype, arapply_ref_id,
-        arapply_applied, arapply_closed, arapply_postdate, arapply_distdate,
-        arapply_journalnumber, arapply_username, arapply_curr_id )
-      VALUES
-      ( _p.cashrcpt_cust_id,
-        _r.aropen_id, _r.aropen_doctype, _r.aropen_docnumber,
-        -1, 'R', _p.cashrcpt_number,
-        '', '', 'CRA', _r.cashrcptitem_id,
-        round(abs(_r.cashrcptitem_amount), 2), _r.closed,
-        _p.applydate, _p.cashrcpt_distdate, pJournalNumber, getEffectiveXtUser(), _p.cashrcpt_curr_id );
-    END IF;
+      IF (_r.aropen_doctype IN ('I','D')) THEN
+        INSERT INTO arapply
+        ( arapply_cust_id,
+          arapply_source_aropen_id, arapply_source_doctype, arapply_source_docnumber,
+          arapply_target_aropen_id, arapply_target_doctype, arapply_target_docnumber,
+          arapply_fundstype, arapply_refnumber, arapply_reftype, arapply_ref_id,
+          arapply_applied, arapply_closed,
+          arapply_postdate, arapply_distdate, arapply_journalnumber, arapply_username,
+          arapply_curr_id )
+        VALUES
+        ( _p.cashrcpt_cust_id,
+          -1, 'K', _p.cashrcpt_number,
+          _r.aropen_id, _r.aropen_doctype, _r.aropen_docnumber,
+          _p.cashrcpt_fundstype, _p.cashrcpt_docnumber, 'CRA', _r.cashrcptitem_id,
+          round(_r.cashrcptitem_amount, 2), _r.closed,
+          _p.applydate, _p.cashrcpt_distdate, pJournalNumber, getEffectiveXtUser(), _p.cashrcpt_curr_id)
+        RETURNING arapply_id INTO _arApplyid;
+      ELSE
+        INSERT INTO arapply
+        ( arapply_cust_id,
+          arapply_source_aropen_id, arapply_source_doctype, arapply_source_docnumber,
+          arapply_target_aropen_id, arapply_target_doctype, arapply_target_docnumber,
+          arapply_fundstype, arapply_refnumber, arapply_reftype, arapply_ref_id,
+          arapply_applied, arapply_closed, arapply_postdate, arapply_distdate,
+          arapply_journalnumber, arapply_username, arapply_curr_id )
+        VALUES
+        ( _p.cashrcpt_cust_id,
+          _r.aropen_id, _r.aropen_doctype, _r.aropen_docnumber,
+          -1, 'R', _p.cashrcpt_number,
+          '', '', 'CRA', _r.cashrcptitem_id,
+          round(abs(_r.cashrcptitem_amount), 2), _r.closed,
+          _p.applydate, _p.cashrcpt_distdate, pJournalNumber, getEffectiveXtUser(), _p.cashrcpt_curr_id )
+        RETURNING arapply_id INTO _arApplyid;
+      END IF;
   
       _exchGain := arCurrGain(_r.aropen_id,_p.cashrcpt_curr_id, abs(_r.cashrcptitem_amount),
                              _p.cashrcpt_distdate);
@@ -245,6 +250,133 @@ BEGIN
                  _p.cashrcpt_distdate, _p.custnote, pCashrcptid);
       END IF;
 
+      IF (fetchMetricBool('CashBasedTax')) THEN
+        -- Cash based tax distributions
+        IF (_r.aropen_doctype = 'I') THEN
+          -- Invoice
+          -- first, debit the tax liability clearing account
+          -- and credit the tax liability distribution account
+          -- for each tax code
+          FOR _tax IN SELECT docnumber, custname,
+                             tax_sales_accnt_id, tax_dist_accnt_id,
+                             currToBase(currid, ROUND(SUM(taxhist_tax),2), taxhist_docdate) AS taxbasevalue
+                      FROM (SELECT invchead_invcnumber AS docnumber, invchead_billto_name AS custname,
+                                   invchead_curr_id AS currid,
+                                   tax_sales_accnt_id, tax_dist_accnt_id,
+                                   taxhist_tax, taxhist_docdate
+                            FROM invchead JOIN cohist ON (cohist_invcnumber=invchead_invcnumber AND cohist_doctype='I')
+                                          JOIN cohisttax ON (taxhist_parent_id=cohist_id)
+                                          JOIN tax ON (tax_id=taxhist_tax_id)
+                            WHERE (invchead_invcnumber=_r.aropen_docnumber)
+                            -- include taxes associated with C/M created by discount
+                            -- taxhist_tax is negative which will reduce summary
+                            UNION
+                            SELECT _r.aropen_docnumber AS docnumber, cust_name AS custname,
+                                   aropen_curr_id AS currid,
+                                   tax_sales_accnt_id, tax_dist_accnt_id,
+                                   taxhist_tax, taxhist_docdate
+                            FROM aropen JOIN custinfo ON (cust_id=aropen_cust_id)
+                                        JOIN cohist ON (cohist_invcnumber=aropen_docnumber AND cohist_doctype='C')
+                                        JOIN cohisttax ON (taxhist_parent_id=cohist_id)
+                                        JOIN tax ON (tax_id=taxhist_tax_id)
+                            WHERE (aropen_id=_ardiscountid)) AS data
+                      GROUP BY docnumber, custname, currid,
+                               tax_sales_accnt_id, tax_dist_accnt_id, taxhist_docdate
+          LOOP
+            PERFORM insertIntoGLSeries( _sequence, 'A/R', 'CR', _tax.docnumber,
+                                        _tax.tax_dist_accnt_id, 
+                                        _tax.taxbasevalue,
+                                        _p.cashrcpt_distdate, _tax.custname );
+            PERFORM insertIntoGLSeries( _sequence, 'A/R', 'CR', _tax.docnumber,
+                                        _tax.tax_sales_accnt_id, 
+                                        (_tax.taxbasevalue * -1.0),
+                                        _p.cashrcpt_distdate, _tax.custname );
+          END LOOP;
+
+          -- second, create a taxpay row for each taxhist
+          FOR _tax IN SELECT *,
+                             currToBase(taxhist_curr_id, ROUND(taxhist_tax,2), taxhist_docdate) AS taxbasevalue
+                      FROM (SELECT cohisttax.*
+                            FROM invchead JOIN cohist ON (cohist_invcnumber=invchead_invcnumber AND cohist_doctype='I')
+                                          JOIN cohisttax ON (taxhist_parent_id=cohist_id)
+                            WHERE (invchead_invcnumber=_r.aropen_docnumber)
+                            -- include taxes associated with C/M created by discount
+                            UNION
+                            SELECT cohisttax.*
+                            FROM aropen JOIN cohist ON (cohist_invcnumber=aropen_docnumber AND cohist_doctype='C')
+                                        JOIN cohisttax ON (taxhist_parent_id=cohist_id)
+                            WHERE (aropen_id=_ardiscountid)) AS data
+          LOOP
+            INSERT INTO taxpay
+            ( taxpay_taxhist_id, taxpay_apply_id, taxpay_distdate, taxpay_tax )
+            VALUES
+            ( _tax.taxhist_id, _r.aropen_id, _p.cashrcpt_distdate, _tax.taxbasevalue );
+          END LOOP;
+        END IF;
+
+        IF (_r.aropen_doctype = 'D') THEN
+          -- Debit Memo
+          -- first, debit the tax liability clearing account
+          -- and credit the tax liability distribution account
+          -- for each tax code
+          FOR _tax IN SELECT docnumber, custname,
+                             tax_sales_accnt_id, tax_dist_accnt_id,
+                             currToBase(currid, ROUND(SUM(taxhist_tax),2), taxhist_docdate) AS taxbasevalue
+                      FROM (SELECT _r.aropen_docnumber AS docnumber, cust_name AS custname,
+                                   aropen_curr_id AS currid,
+                                   tax_sales_accnt_id, tax_dist_accnt_id,
+                                   taxhist_tax, taxhist_docdate
+                            FROM aropen JOIN custinfo ON (cust_id=aropen_cust_id)
+                                        JOIN cohist ON (cohist_invcnumber=aropen_docnumber AND cohist_doctype='D')
+                                        JOIN cohisttax ON (taxhist_parent_id=cohist_id)
+                                        JOIN tax ON (tax_id=taxhist_tax_id)
+                            WHERE (aropen_id=_r.aropen_id)
+                            -- include taxes associated with C/M created by discount
+                            -- taxhist_tax is negative which will reduce summary
+                            UNION
+                            SELECT _r.aropen_docnumber AS docnumber, cust_name AS custname,
+                                   aropen_curr_id AS currid,
+                                   tax_sales_accnt_id, tax_dist_accnt_id,
+                                   taxhist_tax, taxhist_docdate
+                            FROM aropen JOIN custinfo ON (cust_id=aropen_cust_id)
+                                        JOIN cohist ON (cohist_invcnumber=aropen_docnumber AND cohist_doctype='C')
+                                        JOIN cohisttax ON (taxhist_parent_id=cohist_id)
+                                        JOIN tax ON (tax_id=taxhist_tax_id)
+                            WHERE (aropen_id=_ardiscountid)) AS data
+                      GROUP BY docnumber, custname, currid,
+                               tax_sales_accnt_id, tax_dist_accnt_id, taxhist_docdate
+          LOOP
+            PERFORM insertIntoGLSeries( _sequence, 'A/R', 'CR', _tax.docnumber,
+                                        _tax.tax_dist_accnt_id, 
+                                        _tax.taxbasevalue,
+                                        _p.cashrcpt_distdate, _tax.custname );
+            PERFORM insertIntoGLSeries( _sequence, 'A/R', 'CR', _tax.docnumber,
+                                        _tax.tax_sales_accnt_id, 
+                                        (_tax.taxbasevalue * -1.0),
+                                        _p.cashrcpt_distdate, _tax.custname );
+          END LOOP;
+
+          -- second, create a taxpay row for each taxhist
+          FOR _tax IN SELECT *,
+                             currToBase(taxhist_curr_id, ROUND(taxhist_tax,2), taxhist_docdate) AS taxbasevalue
+                      FROM (SELECT cohisttax.*
+                            FROM aropen JOIN cohist ON (cohist_invcnumber=aropen_docnumber AND cohist_doctype='D')
+                                        JOIN cohisttax ON (taxhist_parent_id=cohist_id)
+                            WHERE (aropen_id=_r.aropen_id)
+                            -- include taxes associated with C/M created by discount
+                            UNION
+                            SELECT cohisttax.*
+                            FROM aropen JOIN cohist ON (cohist_invcnumber=aropen_docnumber AND cohist_doctype='C')
+                                        JOIN cohisttax ON (taxhist_parent_id=cohist_id)
+                            WHERE (aropen_id=_ardiscountid)) AS data
+          LOOP
+            INSERT INTO taxpay
+            ( taxpay_taxhist_id, taxpay_apply_id, taxpay_distdate, taxpay_tax )
+            VALUES
+            ( _tax.taxhist_id, _r.aropen_id, _p.cashrcpt_distdate, _tax.taxbasevalue );
+          END LOOP;
+        END IF;
+      END IF;
     END LOOP;
 
 --  Distribute Misc. Applications

@@ -70,13 +70,13 @@ SELECT
   END AS freightbase,
   CASE
     WHEN (cohist_misc_type = 'F') THEN
-      taxhist_tax / taxhist_curr_rate
+      COALESCE(taxpay_tax, taxhist_tax) / taxhist_curr_rate
     ELSE 0
   END AS freighttax,
   0 AS purchasebase,
-  taxhist_tax AS taxlocal,
-  taxhist_tax / taxhist_curr_rate AS taxbase,
-  taxhist_tax / taxhist_curr_rate AS salestaxbase,
+  COALESCE(taxpay_tax, taxhist_tax) AS taxlocal,
+  COALESCE(taxpay_tax, taxhist_tax) / taxhist_curr_rate AS taxbase,
+  COALESCE(taxpay_tax, taxhist_tax) / taxhist_curr_rate AS salestaxbase,
   0 AS purchasetaxbase,
   'qty' AS qty_xtnumericrole,
   'saleprice' AS unitprice_xtnumericrole,
@@ -94,12 +94,14 @@ FROM cohisttax
  LEFT OUTER JOIN taxzone ON (cohist_taxzone_id=taxzone_id)
  LEFT OUTER JOIN itemsite ON (cohist_itemsite_id=itemsite_id)
  LEFT OUTER JOIN item ON (itemsite_item_id=item_id)
+ LEFT OUTER JOIN taxpay ON (taxpay_taxhist_id=taxhist_id)
+WHERE ((true)
 <? if exists("distDate") ?>
-WHERE ((taxhist_distdate BETWEEN <? value("startDate") ?>
-                             AND <? value("endDate") ?>)
+ AND (taxhist_distdate BETWEEN <? value("startDate") ?>
+                           AND <? value("endDate") ?>)
 <? else ?>
-WHERE ((taxhist_docdate BETWEEN <? value("startDate") ?>
-                             AND <? value("endDate") ?>)
+ AND (taxhist_docdate BETWEEN <? value("startDate") ?>
+                          AND <? value("endDate") ?>)
 <? endif ?>
 <? if exists("tax_id") ?>
  AND (taxhist_tax_id=<? value("tax_id") ?>)
@@ -115,6 +117,9 @@ WHERE ((taxhist_docdate BETWEEN <? value("startDate") ?>
 <? endif ?>
 <? if exists("taxzone_id") ?>
  AND (taxzone_id=<? value("taxzone_id") ?>)
+<? endif ?>
+<? if exists("cashbasedtax") ?>
+ AND (taxpay_id IS NOT NULL)
 <? endif ?>
 )
 <? endif ?>

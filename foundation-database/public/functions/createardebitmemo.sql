@@ -160,6 +160,7 @@ BEGIN
     1, (pAmount - _taxBaseValue), 0,
     pSalesrepid, pCommissiondue, FALSE,
     pCurrId, _glSequence );
+
   INSERT INTO cohisttax
   ( taxhist_parent_id, taxhist_taxtype_id, taxhist_tax_id,
     taxhist_basis, taxhist_basis_tax_id, taxhist_sequence,

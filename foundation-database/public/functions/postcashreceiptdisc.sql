@@ -115,7 +115,7 @@ BEGIN
         
    END IF; -- End handle Discount
 
-   RETURN 1;
+   RETURN _ardiscountid;
 
 END;
 $$ LANGUAGE 'plpgsql';
