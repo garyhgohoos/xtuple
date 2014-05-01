@@ -154,7 +154,13 @@ BEGIN
                      apopen_id, apopen_doctype, apopen_docnumber,
                      aropen_id, aropen_doctype, aropen_docnumber,
                      checkitem_curr_id, checkitem_curr_rate, apopen_curr_rate,
-                     COALESCE(checkitem_docdate, _p.checkhead_checkdate) AS docdate
+                     COALESCE(checkitem_docdate, _p.checkhead_checkdate) AS docdate,
+                     currTocurr(checkitem_curr_id, _p.checkhead_curr_id,
+                                CASE WHEN (checkitem_apopen_id IS NOT NULL AND apopen_doctype='C') THEN
+                                          (checkitem_amount + checkitem_discount) * -1.0
+                                     ELSE (checkitem_amount + checkitem_discount) END,
+                                  _p.checkhead_checkdate) / CASE WHEN (checkitem_apopen_id IS NOT NULL) THEN apopen_amount
+                                                                 ELSE aropen_amount END AS percent_paid
               FROM (checkitem LEFT OUTER JOIN
 		    apopen ON (checkitem_apopen_id=apopen_id)) LEFT OUTER JOIN
 		    aropen ON (checkitem_aropen_id=aropen_id)
@@ -197,7 +203,7 @@ BEGIN
             -- for each tax code
             FOR _tax IN SELECT docnumber, vendname,
                                tax_sales_accnt_id, tax_dist_accnt_id,
-                               currToBase(currid, ROUND(SUM(taxhist_tax),2), taxhist_docdate) AS taxbasevalue
+                               ROUND(currToBase(currid, ROUND(SUM(taxhist_tax),2), taxhist_docdate) * _r.percent_paid, 2) AS taxbasevalue
                         FROM (SELECT _r.apopen_docnumber AS docnumber, vend_name AS vendname,
                                      apopen_curr_id AS currid,
                                      tax_sales_accnt_id, tax_dist_accnt_id,
@@ -233,7 +239,7 @@ BEGIN
 
             -- second, create a taxpay row for each taxhist
             FOR _tax IN SELECT *,
-                               currToBase(taxhist_curr_id, ROUND(taxhist_tax,2), taxhist_docdate) AS taxbasevalue
+                               ROUND(taxhist_tax * _r.percent_paid, 2) AS taxpaid
                         FROM (SELECT taxhist_id, taxhist_curr_id, taxhist_tax, taxhist_docdate
                               FROM apopen JOIN vohead ON (vohead_number=apopen_docnumber)
                                           JOIN voheadtax ON (taxhist_parent_id=vohead_id)
@@ -248,7 +254,7 @@ BEGIN
               INSERT INTO taxpay
               ( taxpay_taxhist_id, taxpay_apply_id, taxpay_distdate, taxpay_tax )
               VALUES
-              ( _tax.taxhist_id, _r.apopen_id, _p.checkhead_checkdate, _tax.taxbasevalue );
+              ( _tax.taxhist_id, _r.apopen_id, _p.checkhead_checkdate, _tax.taxpaid );
             END LOOP;
           END IF;
         END IF;
@@ -288,7 +294,7 @@ BEGIN
             -- for each tax code
             FOR _tax IN SELECT docnumber, custname,
                                tax_sales_accnt_id, tax_dist_accnt_id,
-                               currToBase(currid, ROUND(SUM(taxhist_tax),2), taxhist_docdate) AS taxbasevalue
+                               ROUND(currToBase(currid, ROUND(SUM(taxhist_tax),2), taxhist_docdate) * _r.percent_paid, 2) AS taxbasevalue
                         FROM (SELECT _r.aropen_docnumber AS docnumber, cust_name AS custname,
                                      aropen_curr_id AS currid,
                                      tax_sales_accnt_id, tax_dist_accnt_id,
@@ -325,7 +331,7 @@ BEGIN
 
             -- second, create a taxpay row for each taxhist
             FOR _tax IN SELECT *,
-                               currToBase(taxhist_curr_id, ROUND(taxhist_tax,2), taxhist_docdate) AS taxbasevalue
+                               ROUND(taxhist_tax * _r.percent_paid, 2) AS taxpaid
                         FROM (SELECT cohisttax.*
                               FROM aropen JOIN cohist ON (cohist_invcnumber=aropen_docnumber AND cohist_doctype='D')
                                           JOIN cohisttax ON (taxhist_parent_id=cohist_id)
@@ -340,7 +346,7 @@ BEGIN
               INSERT INTO taxpay
               ( taxpay_taxhist_id, taxpay_apply_id, taxpay_distdate, taxpay_tax )
               VALUES
-              ( _tax.taxhist_id, _r.aropen_id, _p.cashrcpt_distdate, _tax.taxbasevalue );
+              ( _tax.taxhist_id, _r.aropen_id, _p.cashrcpt_distdate, _tax.taxpaid );
             END LOOP;
           END IF;
         END IF;

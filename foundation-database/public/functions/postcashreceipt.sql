@@ -170,10 +170,12 @@ BEGIN
                                  AS closed,
                      cashrcptitem_id, cashrcptitem_amount, cashrcptitem_discount,
                      (cashrcptitem_amount / _p.cashrcpt_curr_rate) AS cashrcptitem_amount_base,
-		     (cashrcptitem_discount / _p.cashrcpt_curr_rate) AS cashrcptitem_discount_base,
+		      (cashrcptitem_discount / _p.cashrcpt_curr_rate) AS cashrcptitem_discount_base,
                      round(aropen_paid + 
                        currToCurr(_p.cashrcpt_curr_id, aropen_curr_id,abs(cashrcptitem_amount),_p.cashrcpt_distdate),2) AS new_paid,
-                     round(currToCurr(_p.cashrcpt_curr_id, aropen_curr_id,cashrcptitem_discount,_p.cashrcpt_distdate),2) AS new_discount
+                     round(currToCurr(_p.cashrcpt_curr_id, aropen_curr_id,cashrcptitem_discount,_p.cashrcpt_distdate),2) AS new_discount,
+                     (round(currToCurr(_p.cashrcpt_curr_id, aropen_curr_id,abs(cashrcptitem_amount + cashrcptitem_discount),_p.cashrcpt_distdate), 2) /
+                      aropen_amount) AS percent_paid
               FROM cashrcptitem JOIN aropen ON (aropen_id=cashrcptitem_aropen_id)
               WHERE ((cashrcptitem_cashrcpt_id=pCashrcptid)
                AND (NOT _predist OR aropen_doctype IN ('C','R'))) LOOP
@@ -259,7 +261,7 @@ BEGIN
           -- for each tax code
           FOR _tax IN SELECT docnumber, custname,
                              tax_sales_accnt_id, tax_dist_accnt_id,
-                             currToBase(currid, ROUND(SUM(taxhist_tax),2), taxhist_docdate) AS taxbasevalue
+                             ROUND(currToBase(currid, ROUND(SUM(taxhist_tax),2), taxhist_docdate) * _r.percent_paid, 2) AS taxbasevalue
                       FROM (SELECT invchead_invcnumber AS docnumber, invchead_billto_name AS custname,
                                    invchead_curr_id AS currid,
                                    tax_sales_accnt_id, tax_dist_accnt_id,
@@ -286,16 +288,16 @@ BEGIN
             PERFORM insertIntoGLSeries( _sequence, 'A/R', 'CR', _tax.docnumber,
                                         _tax.tax_dist_accnt_id, 
                                         _tax.taxbasevalue,
-                                        _p.cashrcpt_distdate, _tax.custname );
+                                        _p.applydate, _tax.custname );
             PERFORM insertIntoGLSeries( _sequence, 'A/R', 'CR', _tax.docnumber,
                                         _tax.tax_sales_accnt_id, 
                                         (_tax.taxbasevalue * -1.0),
-                                        _p.cashrcpt_distdate, _tax.custname );
+                                        _p.applydate, _tax.custname );
           END LOOP;
 
           -- second, create a taxpay row for each taxhist
           FOR _tax IN SELECT *,
-                             currToBase(taxhist_curr_id, ROUND(taxhist_tax,2), taxhist_docdate) AS taxbasevalue
+                             ROUND(taxhist_tax * _r.percent_paid, 2) AS taxpaid
                       FROM (SELECT cohisttax.*
                             FROM invchead JOIN cohist ON (cohist_invcnumber=invchead_invcnumber AND cohist_doctype='I')
                                           JOIN cohisttax ON (taxhist_parent_id=cohist_id)
@@ -310,7 +312,7 @@ BEGIN
             INSERT INTO taxpay
             ( taxpay_taxhist_id, taxpay_apply_id, taxpay_distdate, taxpay_tax )
             VALUES
-            ( _tax.taxhist_id, _r.aropen_id, _p.cashrcpt_distdate, _tax.taxbasevalue );
+            ( _tax.taxhist_id, _r.aropen_id, _p.applydate, _tax.taxpaid );
           END LOOP;
         END IF;
 
@@ -321,7 +323,7 @@ BEGIN
           -- for each tax code
           FOR _tax IN SELECT docnumber, custname,
                              tax_sales_accnt_id, tax_dist_accnt_id,
-                             currToBase(currid, ROUND(SUM(taxhist_tax),2), taxhist_docdate) AS taxbasevalue
+                             ROUND(currToBase(currid, ROUND(SUM(taxhist_tax),2), taxhist_docdate) * _r.percent_paid, 2) AS taxbasevalue
                       FROM (SELECT _r.aropen_docnumber AS docnumber, cust_name AS custname,
                                    aropen_curr_id AS currid,
                                    tax_sales_accnt_id, tax_dist_accnt_id,
@@ -349,16 +351,16 @@ BEGIN
             PERFORM insertIntoGLSeries( _sequence, 'A/R', 'CR', _tax.docnumber,
                                         _tax.tax_dist_accnt_id, 
                                         _tax.taxbasevalue,
-                                        _p.cashrcpt_distdate, _tax.custname );
+                                        _p.applydate, _tax.custname );
             PERFORM insertIntoGLSeries( _sequence, 'A/R', 'CR', _tax.docnumber,
                                         _tax.tax_sales_accnt_id, 
                                         (_tax.taxbasevalue * -1.0),
-                                        _p.cashrcpt_distdate, _tax.custname );
+                                        _p.applydate, _tax.custname );
           END LOOP;
 
           -- second, create a taxpay row for each taxhist
           FOR _tax IN SELECT *,
-                             currToBase(taxhist_curr_id, ROUND(taxhist_tax,2), taxhist_docdate) AS taxbasevalue
+                             ROUND(taxhist_tax * _r.percent_paid, 2) AS taxpaid
                       FROM (SELECT cohisttax.*
                             FROM aropen JOIN cohist ON (cohist_invcnumber=aropen_docnumber AND cohist_doctype='D')
                                         JOIN cohisttax ON (taxhist_parent_id=cohist_id)
@@ -373,7 +375,7 @@ BEGIN
             INSERT INTO taxpay
             ( taxpay_taxhist_id, taxpay_apply_id, taxpay_distdate, taxpay_tax )
             VALUES
-            ( _tax.taxhist_id, _r.aropen_id, _p.cashrcpt_distdate, _tax.taxbasevalue );
+            ( _tax.taxhist_id, _r.aropen_id, _p.applydate, _tax.taxpaid );
           END LOOP;
         END IF;
       END IF;
