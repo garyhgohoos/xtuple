@@ -16,6 +16,7 @@ fi
 alias sudo='sudo env PATH=$PATH $@'
 
 # Make sure we have all the essential tools we need
+sudo apt-get update
 sudo apt-get -q -y install \
   git \
   curl \
@@ -96,8 +97,7 @@ while getopts ":d:ipnhmx-:" opt; do
       echo "Usage: install_xtuple [OPTION]"
 	 echo "Build the full xTuple Mobile Development Environment."
 	 echo ""
-	 echo "To install everything, run sudo ./scripts/install_xtuple.sh"
-	 echo "Everything will go in /usr/local/src/xtuple"
+	 echo "To install everything, run bash /scripts/install_xtuple.sh"
 	 echo ""
 	 echo -e "  -h\t\t"
 	 echo -e "  -i\t\t"
