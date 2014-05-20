@@ -992,6 +992,7 @@
 
     "public/tables/bankrecitem.sql",
     "public/tables/cashrcpt.sql",
+    "public/tables/checkhead.sql",
     "public/tables/metric.sql",
     "public/tables/priv.sql",
     "public/tables/tax.sql",
