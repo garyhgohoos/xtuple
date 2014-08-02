@@ -5,10 +5,11 @@
 --        See www.xtuple.com/CPAL for the full text of the software license.
 
 SELECT *,
-       CASE WHEN (cohist_invcnumber='-1') THEN  <? value("credit") ?>
+       CASE WHEN (COALESCE(cohist_invcnumber, '-1') IN ('', '-1')) THEN  <? value("credit") ?>
             ELSE cohist_invcnumber
        END AS invoicenumber,
 <? if exists("isReport") ?>
+       formatDate(cohist_orderdate) AS f_orderdate,
        formatDate(cohist_invcdate) AS f_invcdate,
        formatQty(cohist_qtyshipped) AS f_qtyshipped,
        formatBoolYN(cohist_commissionpaid) AS f_commissionpaid,
@@ -17,7 +18,7 @@ SELECT *,
        formatMoney(baseextprice) AS f_baseextprice,
        formatMoney(extcost) AS f_extcost,
        formatMoney(margin) AS f_margin,
-       formatPercent(marginpercent) AS f_marginpercent,
+       formatPrcnt(marginpercent) AS f_marginpercent,
        formatMoney(basecommission) AS f_basecommission,
 <? endif ?>
        <? value("return") ?> AS cohist_invcdate_xtnullrole,
@@ -26,17 +27,12 @@ SELECT *,
        0 AS extcost_xttotalrole,
        0 AS margin_xttotalrole,
        0 AS basecommission_xttotalrole
+<? if exists("includeMisc") ?>
+  FROM saleshistorymisc
+<? else ?>
   FROM saleshistory
-<? if exists("cohead_id") ?>
-              JOIN cohead ON (cohead_number=cohist_ordernumber)
 <? endif ?>
 WHERE ( (true)
-<? if exists("includeMisc") ?>
-  AND  (COALESCE(cohist_misc_type, '') <> 'F')
-  AND  (COALESCE(cohist_misc_type, '') <> 'T')
-<? else ?>
-  AND  (warehous_id IS NOT NULL)
-<? endif ?>
 <? if exists("startDate") ?>
   AND  (cohist_invcdate >= <? value("startDate") ?>)
 <? endif ?>
@@ -62,11 +58,11 @@ WHERE ( (true)
   AND  (cohist_cust_id=<? value("cust_id") ?>)
 <? endif ?>
 <? if exists("custtype_id") ?>
-  AND  (cust_custtype_id=<? value("custtype_id") ?>)
+  AND  (custtype_id=<? value("custtype_id") ?>)
 <? elseif exists("custtype_pattern") ?>
-  AND  (cust_custtype_id IN (SELECT DISTINCT custtype_id
-                             FROM custtype
-                             WHERE (custtype_code ~ <? value("custtype_pattern") ?>)))
+  AND  (custtype_id IN (SELECT DISTINCT custtype_id
+                        FROM custtype
+                        WHERE (custtype_code ~ <? value("custtype_pattern") ?>)))
 <? endif ?>
 <? if exists("by_custgrp") ?>
   AND (cust_id IN (SELECT DISTINCT custgrpitem_cust_id
@@ -85,19 +81,19 @@ WHERE ( (true)
 <? endif ?>
 
 <? if exists("item_id") ?>
-  AND  (itemsite_item_id=<? value("item_id") ?>)
+  AND  (item_id=<? value("item_id") ?>)
 <? endif ?>
 <? if exists("prodcat_id") ?>
-  AND (item_prodcat_id=<? value("prodcat_id") ?>)
+  AND (prodcat_id=<? value("prodcat_id") ?>)
 <? endif ?>
 <? if exists("prodcat_pattern") ?>
-  AND (item_prodcat_id IN (SELECT DISTINCT prodcat_id
-                           FROM prodcat
-                           WHERE (prodcat_code ~ <? value("prodcat_pattern") ?>)))
+  AND (prodcat_id IN (SELECT DISTINCT prodcat_id
+                      FROM prodcat
+                      WHERE (prodcat_code ~ <? value("prodcat_pattern") ?>)))
 <? endif ?>
 
 <? if exists("warehous_id") ?>
-  AND  (itemsite_warehous_id=<? value("warehous_id") ?>)
+  AND  (warehous_id=<? value("warehous_id") ?>)
 <? endif ?>
 <? if exists("shipzone_id") ?>
   AND (cohist_shipzone_id=<? value("shipzone_id") ?>)
@@ -109,5 +105,5 @@ WHERE ( (true)
   AND (cohead_id=<? value("cohead_id") ?>)
 <? endif ?>
       )
-ORDER BY cohist_invcdate, item_number;
+ORDER BY cohist_invcdate, itemnumber;
 
