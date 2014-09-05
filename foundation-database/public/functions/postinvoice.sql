@@ -1,8 +1,7 @@
-CREATE OR REPLACE FUNCTION postInvoice(INTEGER) RETURNS INTEGER AS $$
+CREATE OR REPLACE FUNCTION postInvoice(pInvcheadid INTEGER) RETURNS INTEGER AS $$
 -- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple. 
 -- See www.xtuple.com/CPAL for the full text of the software license.
 DECLARE
-  pInvcheadid ALIAS FOR $1;
   _return INTEGER;
 
 BEGIN
@@ -12,14 +11,13 @@ BEGIN
   RETURN _return;
 
 END;
-$$ LANGUAGE 'plpgsql';
+$$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE FUNCTION postInvoice(INTEGER, INTEGER) RETURNS INTEGER AS $$
+CREATE OR REPLACE FUNCTION postInvoice(pInvcheadid INTEGER,
+                                       pJournalNumber INTEGER) RETURNS INTEGER AS $$
 -- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple. 
 -- See www.xtuple.com/CPAL for the full text of the software license.
 DECLARE
-  pInvcheadid ALIAS FOR $1;
-  pJournalNumber ALIAS FOR $2;
   _itemlocSeries INTEGER;
   _return INTEGER;
 
@@ -31,15 +29,14 @@ BEGIN
   RETURN _return;
 
 END;
-$$ LANGUAGE 'plpgsql';
+$$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE FUNCTION postInvoice(INTEGER, INTEGER, INTEGER) RETURNS INTEGER AS $$
+CREATE OR REPLACE FUNCTION postInvoice(pInvcheadid INTEGER,
+                                       pJournalNumber INTEGER,
+                                       pItemlocSeries INTEGER) RETURNS INTEGER AS $$
 -- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple. 
 -- See www.xtuple.com/CPAL for the full text of the software license.
 DECLARE
-  pInvcheadid ALIAS FOR $1;
-  pJournalNumber ALIAS FOR $2;
-  pItemlocSeries ALIAS FOR $3;
   _aropenid INTEGER;
   _cohistid INTEGER;
   _itemlocSeries INTEGER := 0;
@@ -276,8 +273,24 @@ BEGIN
         RETURN _test;
       END IF;
 
+      IF (_p.araccntid != _r.salescat_ar_accnt_id) THEN
+--  Debit A/R using the salescat a/r account and do not add to totalRoundedBase
+        SELECT insertIntoGLSeries( _p.sequence, 'A/R', 'IN', _p.invchead_invcnumber,
+                                   _r.salescat_ar_accnt_id,
+                                   round(_roundedBase * -1, 2),
+                                   _glDate, _p.invchead_billto_name ) INTO _test;
+        IF (_test < 0) THEN
+          PERFORM deleteGLSeries(_p.sequence);
+          DELETE FROM cohist
+           WHERE ((cohist_sequence=_p.sequence)
+             AND  (cohist_invcnumber=_p.invchead_invcnumber));
+          RETURN _test;
+        END IF;
+      ELSE
+        _totalRoundedBase :=  _totalRoundedBase + _roundedBase;
+      END IF;
+
       _totalAmount := (_totalAmount + _amount);
-      _totalRoundedBase :=  _totalRoundedBase + _roundedBase;
       _commissionDue := (_commissionDue + (_amount * _p.invchead_commission));
     END IF;
 
