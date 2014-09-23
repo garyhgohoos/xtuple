@@ -1,9 +1,7 @@
-CREATE OR REPLACE FUNCTION selectuninvoicedshipment(INTEGER) RETURNS INTEGER AS
-$BODY$
+CREATE OR REPLACE FUNCTION selectuninvoicedshipment(pShipheadid INTEGER) RETURNS INTEGER AS $$
 -- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple.
 -- See www.xtuple.com/CPAL for the full text of the software license.
 DECLARE
-  pShipheadid ALIAS FOR $1;
   _cobmiscid INTEGER;
   _coheadid  INTEGER;
   _r RECORD;
@@ -11,8 +9,8 @@ DECLARE
 
 BEGIN
 
-  -- make a cobmisc head if it doesn't already exist for this cohead
-  SELECT shiphead_order_id, createBillingHeader(shiphead_order_id)
+  -- make a cobmisc head if it doesn't already exist for this shiphead
+  SELECT shiphead_order_id, createBillingHeader(shiphead_id)
     INTO _coheadid, _cobmiscid
     FROM shiphead
     JOIN shipitem ON (shipitem_shiphead_id=shiphead_id)
@@ -22,9 +20,10 @@ BEGIN
 
   --  Grab all of the uninvoiced shipitem records
   FOR _r IN SELECT cohead_id, coitem_id, SUM(shipitem_qty) AS qty,
-                   coitem_price, coitem_price_invuomratio AS invpricerat, coitem_qty_invuomratio, item_id,
+                   coitem_price, coitem_price_invuomratio AS invpricerat,
+                   coitem_qty_invuomratio, coitem_taxtype_id, item_id,
                    ( ((coitem_qtyord - coitem_qtyshipped + coitem_qtyreturned) <= 0)
-                    OR (NOT cust_partialship) ) AS toclose, coitem_taxtype_id
+                    OR (NOT cust_partialship) ) AS toclose
             FROM shiphead, shipitem, coitem, cohead, custinfo, itemsite, item
             WHERE ( (shipitem_shiphead_id=shiphead_id)
              AND (shipitem_orderitem_id=coitem_id)
@@ -42,8 +41,9 @@ BEGIN
                      coitem_price, invpricerat, coitem_qty_invuomratio, item_id
             UNION
             SELECT cohead_id, coitem_id, coitem_qtyord AS qty,
-                   coitem_price, coitem_price_invuomratio AS invpricerat, coitem_qty_invuomratio, item_id,
-                   true AS toclose, coitem_taxtype_id
+                   coitem_price, coitem_price_invuomratio AS invpricerat,
+                   coitem_qty_invuomratio, coitem_taxtype_id, item_id,
+                   true AS toclose
               FROM shiphead, cohead, custinfo, itemsite, item, coitem AS kit
              WHERE((shiphead_order_id=cohead_id)
                AND (coitem_cohead_id=cohead_id)
@@ -106,5 +106,4 @@ BEGIN
   RETURN _cobmiscid;
 
 END;
-$BODY$
-  LANGUAGE 'plpgsql' VOLATILE;
+$$ LANGUAGE plpgsql VOLATILE;

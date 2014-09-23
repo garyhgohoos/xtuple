@@ -4,39 +4,40 @@ CREATE OR REPLACE FUNCTION shipShipment(INTEGER) RETURNS INTEGER AS $$
   SELECT shipShipment($1, CURRENT_TIMESTAMP);
 $$ LANGUAGE SQL;
 
-CREATE OR REPLACE FUNCTION shipShipment(INTEGER, TIMESTAMP WITH TIME ZONE) RETURNS INTEGER AS $$
+CREATE OR REPLACE FUNCTION shipShipment(pShipheadid INTEGER,
+                                        pTimestamp TIMESTAMP WITH TIME ZONE) RETURNS INTEGER AS $$
 -- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple. 
 -- See www.xtuple.com/CPAL for the full text of the software license.
 DECLARE
-  pshipheadid		ALIAS FOR $1;
-  _timestamp		TIMESTAMP WITH TIME ZONE := $2;
-
-  _billedQty		NUMERIC;
-  _c			RECORD;
-  _coholdtype		TEXT;
-  _gldate		DATE;
-  _invhistid		INTEGER;
-  _itemlocSeries	INTEGER;
-  _lineitemsToClose     INTEGER[];
-  _newQty		NUMERIC;
-  _result		INTEGER;
-  _s			RECORD;
-  _shipcomplete		BOOLEAN;
-  _shiphead		RECORD;
-  _ti			RECORD;
-  _to			RECORD;
-  _variance           	NUMERIC;
-  _k                    RECORD;
+  _timestamp           TIMESTAMP WITH TIME ZONE;
+  _billedQty           NUMERIC;
+  _c                   RECORD;
+  _coholdtype          TEXT;
+  _gldate              DATE;
+  _invhistid           INTEGER;
+  _itemlocSeries       INTEGER;
+  _lineitemsToClose    INTEGER[];
+  _newQty              NUMERIC;
+  _result              INTEGER;
+  _s                   RECORD;
+  _shipcomplete	        BOOLEAN;
+  _shiphead            RECORD;
+  _ti                  RECORD;
+  _to                  RECORD;
+  _variance            NUMERIC;
+  _k                   RECORD;
 
 BEGIN
 
-  IF (_timestamp IS NULL) THEN
+  IF (pTimestamp IS NULL) THEN
     _timestamp := CURRENT_TIMESTAMP;
+  ELSE
+    _timestamp := pTimestamp;
   END IF;
   _gldate := _timestamp::DATE;
 
   SELECT * INTO _shiphead
-  FROM shiphead WHERE (shiphead_id=pshipheadid);
+  FROM shiphead WHERE (shiphead_id=pShipheadid);
   IF (NOT FOUND) THEN
     RETURN -50;
   END IF;
@@ -48,7 +49,7 @@ BEGIN
      WHERE ((shiphead_order_id=cohead_id)
        AND  (NOT shiphead_shipped)
        AND  (shiphead_order_type=_shiphead.shiphead_order_type)
-       AND  (shiphead_id=pshipheadid));
+       AND  (shiphead_id=pShipheadid));
 
     IF (_coholdtype = 'C') THEN
       RETURN -12;
@@ -72,14 +73,14 @@ BEGIN
           (shiphead_order_type = 'SO') AND 
           (cust_partialship) AND
           (cust_backorder) AND
-          (shiphead_id = pshipheadid)
+          (shiphead_id = pShipheadid)
          ) IS NULL) THEN
       FOR _k IN SELECT (coitem_qtyord -
 			(COALESCE(SUM(shipitem_qty),0) +
 			 (coitem_qtyshipped - coitem_qtyreturned))) AS remain
 		  FROM (coitem LEFT OUTER JOIN (itemsite JOIN item ON (itemsite_item_id=item_id)) ON (coitem_itemsite_id=itemsite_id)) LEFT OUTER JOIN
 		       shipitem ON (shipitem_orderitem_id=coitem_id
-		                AND shipitem_shiphead_id=pshipheadid)
+		                AND shipitem_shiphead_id=pShipheadid)
 		 WHERE ((coitem_status NOT IN ('C','X'))
                    AND  (item_type != 'K')
 		   AND  (coitem_cohead_id=_shiphead.shiphead_order_id)
@@ -100,7 +101,7 @@ BEGIN
 			 (coitem_qtyshipped - coitem_qtyreturned))) AS remain
 		  FROM (coitem LEFT OUTER JOIN (itemsite JOIN item ON (itemsite_item_id=item_id)) ON (coitem_itemsite_id=itemsite_id)) LEFT OUTER JOIN
 		       shipitem ON (shipitem_orderitem_id=coitem_id
-		                AND shipitem_shiphead_id=pshipheadid)
+		                AND shipitem_shiphead_id=pShipheadid)
 		 WHERE ((coitem_status<>'X')
                    AND  (item_type != 'K')
 		   AND  (coitem_cohead_id=_shiphead.shiphead_order_id))
@@ -114,21 +115,23 @@ BEGIN
 
     FOR _c IN SELECT coitem_id, cohead_number, cohead_cust_id, cohead_billtoname, cohead_prj_id,
                      cohead_saletype_id, cohead_shipzone_id,
-		     itemsite_id, itemsite_item_id,
+                     itemsite_id, itemsite_item_id,
                      coitem_qty_invuomratio,
                      coitem_warranty, coitem_cos_accnt_id,
-		     SUM(shipitem_qty) AS _qty,
+                     SUM(shipitem_qty) AS _qty,
                      SUM(shipitem_value) AS _value
-	      FROM coitem, cohead, shiphead, shipitem, itemsite
-	      WHERE ( (coitem_cohead_id=cohead_id)
-	       AND (coitem_itemsite_id=itemsite_id)
-	       AND (shiphead_order_id=cohead_id)
-	       AND (shipitem_shiphead_id=shiphead_id)
-	       AND (shipitem_orderitem_id=coitem_id)
-	       AND (NOT shiphead_shipped)
-	       AND (shiphead_id=pshipheadid) )
-	      GROUP BY coitem_id, coitem_qty_invuomratio, cohead_number, cohead_cust_id, cohead_billtoname,
-           itemsite_id, itemsite_item_id, coitem_warranty, coitem_cos_accnt_id, cohead_prj_id, cohead_saletype_id, cohead_shipzone_id
+              FROM shiphead JOIN cohead ON (cohead_id=shiphead_order_id)
+                            JOIN shipitem ON (shipitem_shiphead_id=shiphead_id)
+                            JOIN coitem ON (coitem_id=shipitem_orderitem_id)
+                            JOIN itemsite ON (itemsite_id=coitem_itemsite_id)
+              WHERE ( (coitem_cohead_id=cohead_id)
+                AND   (NOT shiphead_shipped)
+                AND   (shiphead_id=pShipheadid) )
+              GROUP BY coitem_id, coitem_qty_invuomratio, cohead_number,
+                       cohead_cust_id, cohead_billtoname,
+                       itemsite_id, itemsite_item_id, coitem_warranty,
+                       coitem_cos_accnt_id, cohead_prj_id,
+                       cohead_saletype_id, cohead_shipzone_id
     LOOP
 
       IF _c._value > 0 THEN
@@ -139,8 +142,12 @@ BEGIN
                                         CASE WHEN (COALESCE(_c.coitem_cos_accnt_id, -1) != -1)
                                                THEN getPrjAccntId(_c.cohead_prj_id, _c.coitem_cos_accnt_id)
                                              WHEN (_c.coitem_warranty=TRUE)
-                                               THEN getPrjAccntId(_c.cohead_prj_id, resolveCOWAccount(itemsite_id, _c.cohead_cust_id, _c.cohead_saletype_id, _c.cohead_shipzone_id))
-                                             ELSE getPrjAccntId(_c.cohead_prj_id, resolveCOSAccount(itemsite_id, _c.cohead_cust_id, _c.cohead_saletype_id, _c.cohead_shipzone_id))
+                                               THEN getPrjAccntId(_c.cohead_prj_id,
+                                                                  resolveCOWAccount(itemsite_id, _c.cohead_cust_id,
+                                                                                    _c.cohead_saletype_id, _c.cohead_shipzone_id))
+                                             ELSE getPrjAccntId(_c.cohead_prj_id,
+                                                                resolveCOSAccount(itemsite_id, _c.cohead_cust_id,
+                                                                _c.cohead_saletype_id, _c.cohead_shipzone_id))
                                         END,
                                         -1, _c._value, _gldate )) INTO _result
 	FROM itemsite, costcat
@@ -160,55 +167,51 @@ BEGIN
       -- check to see if we have more invoiced than shipped items
       -- if we do we will need to mark some of these records as invoiced
       SELECT noNeg(( SELECT COALESCE(SUM(cobill_qty), 0.0)
-		     FROM cobill, cobmisc, coitem
-		     WHERE ( (cobill_cobmisc_id=cobmisc_id)
-		      AND (cobmisc_cohead_id=coitem_cohead_id)
-		      AND (cobill_coitem_id=coitem_id)
-		      AND (cobmisc_posted)
-		      AND (coitem_id=_c.coitem_id) )
-		   ) - ( SELECT COALESCE(SUM(shipitem_qty), 0.0)
-			 FROM shipitem, shiphead, coitem
-			 WHERE ( (shipitem_shiphead_id=shiphead_id)
-			  AND (shiphead_order_id=coitem_cohead_id)
-			  AND (shipitem_orderitem_id=coitem_id)
-			  AND (shiphead_order_type=_shiphead.shiphead_order_type)
-			  AND (shiphead_shipped)
-			  AND (coitem_id=_c.coitem_id) )
-		       ) ) INTO _billedQty;
+                     FROM coitem JOIN cobill ON (cobill_coitem_id=coitem_id)
+                                 JOIN cobmisc ON (cobmisc_id=cobill_cobmisc_id)
+                     WHERE ( (cobmisc_cohead_id=coitem_cohead_id)
+                       AND   (cobmisc_posted)
+                       AND   (coitem_id=_c.coitem_id) ) ) -
+                   ( SELECT COALESCE(SUM(shipitem_qty), 0.0)
+                     FROM coitem JOIN shipitem ON (shipitem_orderitem_id=coitem_id)
+                                 JOIN shiphead ON (shiphead_id=shipitem_shiphead_id)
+                     WHERE ( (shiphead_order_id=coitem_cohead_id)
+                       AND  (shiphead_order_type=_shiphead.shiphead_order_type)
+                       AND  (shiphead_shipped)
+                       AND  (coitem_id=_c.coitem_id) ) ) )
+             INTO _billedQty;
 
       IF (_billedQty > 0.0) THEN
-	FOR _s IN SELECT shipitem_id, shipitem_qty
-		  FROM shipitem, shiphead
-		  WHERE ( (shipitem_shiphead_id=shiphead_id)
-		   AND (shipitem_orderitem_id=_c.coitem_id)
-		   AND (shiphead_order_type=_shiphead.shiphead_order_type)
-		   AND (NOT shiphead_shipped)
-		   AND (shiphead_id=pshipheadid) )
-		  ORDER BY shipitem_qty LOOP
+        FOR _s IN SELECT shipitem_id, shipitem_qty
+                  FROM shiphead JOIN shipitem ON (shipitem_shiphead_id=shiphead_id)
+                  WHERE ( (shipitem_orderitem_id=_c.coitem_id)
+                    AND   (shiphead_order_type=_shiphead.shiphead_order_type)
+                    AND   (NOT shiphead_shipped)
+                    AND   (shiphead_id=pShipheadid) )
+                  ORDER BY shipitem_qty LOOP
 
-	  IF (_billedQty > 0.0) THEN
-
-	    IF (_billedQty >= _s.shipitem_qty) THEN
-	      UPDATE shipitem SET shipitem_invoiced=TRUE WHERE shipitem_id=_s.shipitem_id;
+          IF (_billedQty > 0.0) THEN
+            IF (_billedQty >= _s.shipitem_qty) THEN
+              UPDATE shipitem SET shipitem_invoiced=TRUE
+              WHERE shipitem_id=_s.shipitem_id;
               -- must wait to close coitems until after shiphead_shipped -> true
               _lineitemsToClose := _lineitemsToClose || _c.coitem_id;
-	    ELSE
-	      _newQty := _s.shipitem_qty - _billedQty;
-	      UPDATE shipitem SET shipitem_invoiced=TRUE, shipitem_qty=_billedQty WHERE shipitem_id=_s.shipitem_id;
-	      INSERT INTO shipitem ( shipitem_orderitem_id, shipitem_shipdate,
-		shipitem_qty, shipitem_transdate, shipitem_invoiced,
-		shipitem_shiphead_id, shipitem_trans_username)
-	      SELECT shipitem_orderitem_id, shipitem_shipdate,
-		_newQty, shipitem_transdate, FALSE,
-		shipitem_shiphead_id, shipitem_trans_username
-	      FROM shipitem
-	      WHERE (shipitem_id=_s.shipitem_id);
-	    END IF;
-
-	    _billedQty := _billedQty - _s.shipitem_qty;
-	  END IF;
-	END LOOP;
-
+            ELSE
+              _newQty := _s.shipitem_qty - _billedQty;
+              UPDATE shipitem SET shipitem_invoiced=TRUE, shipitem_qty=_billedQty
+              WHERE shipitem_id=_s.shipitem_id;
+              INSERT INTO shipitem ( shipitem_orderitem_id, shipitem_shipdate,
+                                     shipitem_qty, shipitem_transdate, shipitem_invoiced,
+                                     shipitem_shiphead_id, shipitem_trans_username)
+              SELECT shipitem_orderitem_id, shipitem_shipdate,
+                     _newQty, shipitem_transdate, FALSE,
+                     shipitem_shiphead_id, shipitem_trans_username
+              FROM shipitem
+              WHERE (shipitem_id=_s.shipitem_id);
+            END IF;
+            _billedQty := _billedQty - _s.shipitem_qty;
+          END IF;
+        END LOOP;
       END IF;
     END LOOP;
 
@@ -240,7 +243,7 @@ BEGIN
 		FROM toitem, shipitem
 		WHERE ((toitem_tohead_id=_to.tohead_id)
 		  AND  (shipitem_orderitem_id=toitem_id)
-		  AND  (shipitem_shiphead_id=pshipheadid))
+		  AND  (shipitem_shiphead_id=pShipheadid))
 		GROUP BY toitem_id, toitem_item_id LOOP
 
       IF (NOT EXISTS(SELECT itemsite_id
@@ -326,7 +329,7 @@ BEGIN
 
       UPDATE shipitem SET shipitem_shipdate=_timestamp, shipitem_shipped=TRUE
       WHERE ((shipitem_orderitem_id=_ti.toitem_id)
-        AND  (shipitem_shiphead_id=pshipheadid));
+        AND  (shipitem_shiphead_id=pShipheadid));
 
       UPDATE toitem
       SET toitem_qty_shipped = (toitem_qty_shipped + _ti.qty)
@@ -336,7 +339,7 @@ BEGIN
 
   UPDATE shiphead
   SET shiphead_shipped=TRUE, shiphead_shipdate=_gldate
-  WHERE (shiphead_id=pshipheadid);
+  WHERE (shiphead_id=pShipheadid);
 
   -- now try to close line items that are fully shipped and invoiced
   IF (_shiphead.shiphead_order_type = 'SO') THEN
@@ -348,4 +351,4 @@ BEGIN
   RETURN _itemlocSeries;
 
 END;
-$$ LANGUAGE 'plpgsql';
+$$ LANGUAGE plpgsql;

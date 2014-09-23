@@ -1,0 +1,1 @@
+select xt.add_column('cobmisc','cobmisc_shiphead_id', 'INTEGER', NULL, 'public');
