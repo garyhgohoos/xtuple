@@ -4,7 +4,7 @@ CREATE OR REPLACE FUNCTION itemuomtouom(INTEGER, INTEGER, INTEGER, NUMERIC) RETU
 BEGIN
   RETURN itemuomtouom($1, $2, $3, $4, 'qty');
 END;
-$$ LANGUAGE 'plpgsql';
+$$ LANGUAGE plpgsql;
 
 CREATE OR REPLACE FUNCTION itemuomtouom(pItemid INTEGER,
                                         pUomidFrom INTEGER,
@@ -128,5 +128,4 @@ BEGIN
 
   RETURN _value;
 END;
-$$ LANGUAGE 'plpgsql';
-
+$$ LANGUAGE plpgsql;

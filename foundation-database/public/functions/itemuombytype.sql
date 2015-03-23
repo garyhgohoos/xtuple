@@ -1,9 +1,8 @@
-CREATE OR REPLACE FUNCTION itemUOMByType(INTEGER, TEXT) RETURNS TEXT STABLE AS $$
+CREATE OR REPLACE FUNCTION itemUOMByType(pItemid INTEGER,
+                                         pUomtype TEXT) RETURNS TEXT STABLE AS $$
 -- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple. 
 -- See www.xtuple.com/CPAL for the full text of the software license.
 DECLARE
-  pItemid ALIAS FOR $1;
-  pUomtype ALIAS FOR $2;
   _uom TEXT;
 BEGIN
   SELECT uom_name INTO _uom FROM (
@@ -38,4 +37,4 @@ BEGIN
 
   RETURN _uom;
 END;
-$$ LANGUAGE 'plpgsql';
+$$ LANGUAGE plpgsql;

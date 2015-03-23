@@ -1,15 +1,13 @@
-CREATE OR REPLACE FUNCTION saveItemUomConv(integer, integer, numeric, integer, numeric, boolean, integer[])
-  RETURNS integer AS '
+CREATE OR REPLACE FUNCTION saveItemUomConv(pItemId INTEGER,
+                                           pFromUomId INTEGER,
+                                           pFromValue NUMERIC,
+                                           pToUomId INTEGER,
+                                           pToValue NUMERIC,
+                                           pFractional BOOLEAN,
+                                           pUomTypes INTEGER[]) RETURNS INTEGER AS $$
 -- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple. 
 -- See www.xtuple.com/CPAL for the full text of the software license.
 DECLARE
-  pItemId ALIAS FOR $1;
-  pFromUomId ALIAS FOR $2;
-  pFromValue ALIAS FOR $3;
-  pToUomId ALIAS FOR $4;
-  pToValue ALIAS FOR $5;
-  pFractional ALIAS FOR $6;
-  pUomTypes ALIAS FOR $7;
   _p RECORD;
   _fromUomId INTEGER;
   _fromValue NUMERIC;
@@ -23,7 +21,7 @@ DECLARE
 BEGIN
 -- Make sure we have some itemtypes
   IF (pUomTypes IS NULL) OR (ARRAY_UPPER(pUomTypes,1) = 0) THEN
-	RAISE EXCEPTION ''You must include at least one item type.'';
+	RAISE EXCEPTION 'You must include at least one item type.';
   END IF;
 
 -- If this is a global UOM, over-ride with global data.
@@ -40,7 +38,7 @@ BEGIN
     _fromValue := _p.uomconv_from_value;
     _toValue := _p.uomconv_to_value;
     _fractional := _p.uomconv_fractional;
-    RAISE NOTICE ''Defaulted to global Unit of Measure conversion ratios.'';
+    RAISE NOTICE 'Defaulted to global Unit of Measure conversion ratios.';
   ELSE
     _fromUomId := pFromUomId;
     _fromValue := pFromValue;
@@ -58,7 +56,7 @@ BEGIN
   AND (f.uom_id=itemuomconv_from_uom_id)
   AND (t.uom_id=itemuomconv_to_uom_id));
   IF (FOUND) THEN
-    RAISE EXCEPTION ''Unit of measure conversion already exists going from % to %.'',_p.f_uom,_p.t_uom;
+    RAISE EXCEPTION 'Unit of measure conversion already exists going from % to %.',_p.f_uom,_p.t_uom;
   END IF;
 
 -- See if an item conversion record exists
@@ -82,7 +80,7 @@ BEGIN
   ELSE
   
 -- Otherwise create a new one
-    SELECT NEXTVAL(''itemuomconv_itemuomconv_id_seq'') INTO _seq;
+    SELECT NEXTVAL('itemuomconv_itemuomconv_id_seq') INTO _seq;
     INSERT INTO itemuomconv VALUES
       (_seq, pItemId,_fromUomId,_fromValue,_toUomId,_toValue,_fractional);
   END IF;
@@ -95,10 +93,10 @@ BEGIN
     WHERE ((itemuom_uomtype_id=uomtype_id)
     AND (itemuomconv_id=itemuom_itemuomconv_id)
     AND (itemuomconv_item_id=pItemId)
-    AND (uomtype_name != ''Selling'')
+    AND (uomtype_name != 'Selling')
     AND (itemuom_uomtype_id=pUomTypes[_i]));
     IF (FOUND) THEN
-      RAISE EXCEPTION ''Unit of Measure Type % is already used on this item'',_uomtype;
+      RAISE EXCEPTION 'Unit of Measure Type % is already used on this item',_uomtype;
     ELSE
       INSERT INTO itemuom (itemuom_itemuomconv_id,itemuom_uomtype_id)
       VALUES (_seq,pUomTypes[_i]);
@@ -107,4 +105,4 @@ BEGIN
   
   RETURN _seq;
 END;
-' LANGUAGE 'plpgsql';
+$$ LANGUAGE plpgsql;

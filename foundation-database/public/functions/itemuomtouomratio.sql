@@ -30,6 +30,7 @@ BEGIN
     RETURN 1.0;
   END IF;
 
+  -- Item conversions
   -- Try a direct conversion
   SELECT itemuomconv_from_uom_id, itemuomconv_from_value,
          itemuomconv_to_uom_id, itemuomconv_to_value
@@ -47,18 +48,18 @@ BEGIN
       _valueTo := _conv.itemuomconv_from_value;
     END IF;
     _value := (_valueTo / _valueFrom);
-  ELSE
-    -- Try to convert the from uom to the inventory uom
-    SELECT itemuomconv_from_uom_id, itemuomconv_from_value,
-           itemuomconv_to_uom_id, itemuomconv_to_value
-      INTO _conv
-      FROM itemuomconv
-     WHERE(((itemuomconv_from_uom_id=_uomidFrom AND itemuomconv_to_uom_id=_uomidInv)
-         OR (itemuomconv_from_uom_id=_uomidInv AND itemuomconv_to_uom_id=_uomidFrom))
-       AND (itemuomconv_item_id=pItemid));
-    IF(NOT FOUND) THEN
-      RAISE EXCEPTION 'A conversion for item_id % from uom_id % to inv_uom_id % was not found.', pItemid, _uomidFrom, _uomidInv;
-    END IF;
+    RETURN _value;
+  END IF;
+
+  -- Try to convert the from uom to the inventory uom
+  SELECT itemuomconv_from_uom_id, itemuomconv_from_value,
+         itemuomconv_to_uom_id, itemuomconv_to_value
+    INTO _conv
+    FROM itemuomconv
+   WHERE(((itemuomconv_from_uom_id=_uomidFrom AND itemuomconv_to_uom_id=_uomidInv)
+       OR (itemuomconv_from_uom_id=_uomidInv AND itemuomconv_to_uom_id=_uomidFrom))
+     AND (itemuomconv_item_id=pItemid));
+  IF(FOUND) THEN
     IF(_conv.itemuomconv_from_uom_id=_uomidInv) THEN
       _valueFrom := _conv.itemuomconv_from_value;
       _valueTo := _conv.itemuomconv_to_value;
@@ -67,17 +68,18 @@ BEGIN
       _valueTo := _conv.itemuomconv_from_value;
     END IF;
     _value := (_valueTo / _valueFrom);
-    -- Try to convert the to uom to the inventory uom
-    SELECT itemuomconv_from_uom_id, itemuomconv_from_value,
-           itemuomconv_to_uom_id, itemuomconv_to_value
-      INTO _conv
-      FROM itemuomconv
-     WHERE(((itemuomconv_from_uom_id=_uomidInv AND itemuomconv_to_uom_id=_uomidTo)
-         OR (itemuomconv_from_uom_id=_uomidTo AND itemuomconv_to_uom_id=_uomidInv))
-       AND (itemuomconv_item_id=pItemid));
-    IF(NOT FOUND) THEN
-      RAISE EXCEPTION 'A conversion for item_id % from uom_id % to inv_uom_id % was not found.', pItemid, _uomidTo, _uomidInv;
-    END IF;
+    RETURN _value;
+  END IF;
+
+  -- Try to convert the to uom to the inventory uom
+  SELECT itemuomconv_from_uom_id, itemuomconv_from_value,
+         itemuomconv_to_uom_id, itemuomconv_to_value
+    INTO _conv
+    FROM itemuomconv
+   WHERE(((itemuomconv_from_uom_id=_uomidInv AND itemuomconv_to_uom_id=_uomidTo)
+       OR (itemuomconv_from_uom_id=_uomidTo AND itemuomconv_to_uom_id=_uomidInv))
+     AND (itemuomconv_item_id=pItemid));
+  IF(FOUND) THEN
     IF(_conv.itemuomconv_from_uom_id=_uomidInv) THEN
       _valueFrom := _conv.itemuomconv_from_value;
       _valueTo := _conv.itemuomconv_to_value;
@@ -86,9 +88,30 @@ BEGIN
       _valueTo := _conv.itemuomconv_from_value;
     END IF;
     _value := _value * (_valueTo / _valueFrom);
+    RETURN _value;
   END IF;
 
-  RETURN _value;
-END;
-$$ LANGUAGE 'plpgsql';
+  -- Global conversions
+  -- Try a direct conversion
+  SELECT uomconv_from_uom_id, uomconv_from_value,
+         uomconv_to_uom_id, uomconv_to_value
+    INTO _conv
+    FROM uomconv
+   WHERE(((uomconv_from_uom_id=_uomidFrom AND uomconv_to_uom_id=_uomidTo)
+       OR (uomconv_from_uom_id=_uomidTo AND uomconv_to_uom_id=_uomidFrom)));
+  IF(FOUND) THEN
+    IF(_conv.uomconv_from_uom_id=_uomidFrom) THEN
+      _valueFrom := _conv.uomconv_from_value;
+      _valueTo := _conv.uomconv_to_value;
+    ELSE
+      _valueFrom := _conv.uomconv_to_value;
+      _valueTo := _conv.uomconv_from_value;
+    END IF;
+    _value := (_valueTo / _valueFrom);
+    RETURN _value;
+  END IF;
 
+  RAISE EXCEPTION 'A conversion for item_id % from uom_id % to uom_id % was not found.', pItemid, _uomidFrom, _uomidTo;
+  RETURN -1;
+END;
+$$ LANGUAGE plpgsql;

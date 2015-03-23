@@ -1,9 +1,11 @@
 -- Group: uoms
 -- Name: item
--- Notes: used by bomItem
+-- Notes: valid uom's for an item
 -- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple.
 -- See www.xtuple.com/CPAL for the full text of the software license.
 
+SELECT DISTINCT uom_id, uom_name
+FROM (
 SELECT uom_id, uom_name
   FROM item
   JOIN uom ON (item_inv_uom_id=uom_id)
@@ -34,4 +36,17 @@ SELECT uom_id, uom_name
 <? if exists("uomtype") ?>
    AND (uomtype_name=<? value("uomtype") ?>)
 <? endif ?>
- ORDER BY uom_name;
+UNION
+SELECT uom_id, uom_name
+  FROM item
+  JOIN uomconv ON (uomconv_to_uom_id=item_inv_uom_id)
+  JOIN uom ON (uom_id=uomconv_from_uom_id)
+ WHERE(item_id=<? value("item_id") ?>)
+UNION
+SELECT uom_id, uom_name
+  FROM item
+  JOIN uomconv ON (uomconv_from_uom_id=item_inv_uom_id)
+  JOIN uom ON (uom_id=uomconv_to_uom_id)
+ WHERE(item_id=<? value("item_id") ?>)
+ ) AS data
+ORDER BY uom_name;

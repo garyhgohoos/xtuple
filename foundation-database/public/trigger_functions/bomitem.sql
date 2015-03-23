@@ -150,7 +150,7 @@ BEGIN
 
   RETURN NEW;
 END;
-$$ LANGUAGE 'plpgsql';
+$$ LANGUAGE plpgsql;
 
 SELECT dropIfExists('TRIGGER','bomitemBeforeTrigger');
 CREATE TRIGGER bomitemBeforeTrigger BEFORE INSERT OR UPDATE ON bomitem FOR EACH ROW EXECUTE PROCEDURE _bomitemBeforeTrigger();
@@ -245,7 +245,7 @@ BEGIN
 
   RETURN NEW;
 END;
-$$ LANGUAGE 'plpgsql';
+$$ LANGUAGE plpgsql;
 
 SELECT dropIfExists('TRIGGER','bomitemAfterTrigger');
 CREATE TRIGGER bomitemAfterTrigger AFTER INSERT OR UPDATE ON bomitem FOR EACH ROW EXECUTE PROCEDURE _bomitemAfterTrigger();
@@ -263,7 +263,7 @@ BEGIN
 
   RETURN OLD;
 END;
-$$ LANGUAGE 'plpgsql';
+$$ LANGUAGE plpgsql;
 
 SELECT dropIfExists('TRIGGER','bomitemBeforeDeleteTrigger');
 CREATE TRIGGER bomitemBeforeDeleteTrigger BEFORE DELETE ON bomitem FOR EACH ROW EXECUTE PROCEDURE _bomitemBeforeDeleteTrigger();

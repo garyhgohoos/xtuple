@@ -152,5 +152,5 @@ BEGIN
    RETURN _ipsitemid;
 
 END;
-$$ LANGUAGE 'plpgsql';
+$$ LANGUAGE plpgsql;
 

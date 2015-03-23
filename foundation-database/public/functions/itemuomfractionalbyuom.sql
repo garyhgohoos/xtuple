@@ -1,10 +1,10 @@
-CREATE OR REPLACE FUNCTION itemUOMFractionalByUOM(INTEGER, INTEGER) RETURNS BOOL AS '
+CREATE OR REPLACE FUNCTION itemUOMFractionalByUOM(pItemid INTEGER,
+                                                  pUomid INTEGER) RETURNS BOOL AS $$
 -- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple. 
 -- See www.xtuple.com/CPAL for the full text of the software license.
 DECLARE
-  pItemid ALIAS FOR $1;
-  pUomid ALIAS FOR $2;
   _frac BOOLEAN;
+
 BEGIN
   SELECT itemuomconv_fractional
     INTO _frac
@@ -25,4 +25,4 @@ BEGIN
 
   RETURN _frac;
 END;
-' LANGUAGE 'plpgsql';
+$$ LANGUAGE plpgsql;

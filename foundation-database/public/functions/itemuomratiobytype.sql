@@ -1,10 +1,10 @@
-CREATE OR REPLACE FUNCTION itemUOMRatioByType(INTEGER, TEXT) RETURNS NUMERIC STABLE AS $$
+CREATE OR REPLACE FUNCTION itemUOMRatioByType(pItemid INTEGER,
+                                              pUomtype TEXT) RETURNS NUMERIC STABLE AS $$
 -- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple. 
 -- See www.xtuple.com/CPAL for the full text of the software license.
 DECLARE
-  pItemid ALIAS FOR $1;
-  pUomtype ALIAS FOR $2;
   _ratio NUMERIC;
+
 BEGIN
   -- Return the ration as alternate / inventory uom
   SELECT CASE WHEN(itemuomconv_from_uom_id=item_inv_uom_id) THEN itemuomconv_to_value / itemuomconv_from_value
@@ -25,4 +25,4 @@ BEGIN
 
   RETURN _ratio;
 END;
-$$ LANGUAGE 'plpgsql';
+$$ LANGUAGE plpgsql;

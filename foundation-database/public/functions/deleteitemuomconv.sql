@@ -1,8 +1,7 @@
-CREATE OR REPLACE FUNCTION deleteItemUOMConv(INTEGER) RETURNS INTEGER AS '
+CREATE OR REPLACE FUNCTION deleteItemUOMConv(pItemuomconvid INTEGER) RETURNS INTEGER AS $$
 -- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple. 
 -- See www.xtuple.com/CPAL for the full text of the software license.
 DECLARE
-  pItemuomconvid ALIAS FOR $1;
   _fromuomid     INTEGER;
   _invuomid      INTEGER;
   _itemid        INTEGER;
@@ -27,4 +26,4 @@ BEGIN
 
   RETURN 0;
 END;
-' LANGUAGE 'plpgsql';
+$$ LANGUAGE plpgsql;

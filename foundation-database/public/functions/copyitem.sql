@@ -1,9 +1,8 @@
-CREATE OR REPLACE FUNCTION copyItem(INTEGER, TEXT) RETURNS INTEGER AS $$
+CREATE OR REPLACE FUNCTION copyItem(pSItemid INTEGER,
+                                    pTItemNumber TEXT) RETURNS INTEGER AS $$
 -- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple. 
 -- See www.xtuple.com/CPAL for the full text of the software license.
 DECLARE
-  pSItemid ALIAS FOR $1;
-  pTItemNumber ALIAS FOR $2;
   _itemid INTEGER;
   _r RECORD;
   _id INTEGER;
@@ -86,33 +85,30 @@ BEGIN
   RETURN _itemid;
 
 END;
-$$ LANGUAGE 'plpgsql';
+$$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE FUNCTION copyItem(INTEGER, TEXT, BOOLEAN, BOOLEAN, BOOLEAN) RETURNS INTEGER AS $$
+CREATE OR REPLACE FUNCTION copyItem(pSItemid INTEGER,
+                                    pTItemNumber TEXT,
+                                    pCopyBOM BOOLEAN,
+                                    pCopyBOO BOOLEAN,   -- deprecated - xtmfg-specific
+                                    pCopyCosts BOOLEAN) RETURNS INTEGER AS $$
 -- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple. 
 -- See www.xtuple.com/CPAL for the full text of the software license.
-DECLARE
-  pSItemid ALIAS FOR $1;
-  pTItemNumber ALIAS FOR $2;
-  pCopyBOM ALIAS FOR $3;
-  pCopyBOO ALIAS FOR $4;        -- deprecated - xtmfg-specific
-  pCopyCosts ALIAS FOR $5;
 BEGIN
   RAISE NOTICE 'copyItem(INTEGER, TEXT, BOOLEAN, BOOLEAN, BOOLEAN) has been deprecated.  Use copyItem(INTEGER, TEXT) or copyItem(INTEGER, TEXT, BOOLEAN, BOOLEAN) or a package-specific version instead.';
   RETURN copyItem(pSItemid, pTItemNumber, pCopyBOM, pCopyCosts);
 END;
-$$ LANGUAGE 'plpgsql';
+$$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE FUNCTION copyItem(INTEGER, TEXT, BOOLEAN, BOOLEAN) RETURNS INTEGER AS $$
+CREATE OR REPLACE FUNCTION copyItem(pSItemid INTEGER,
+                                    pTItemNumber TEXT,
+                                    pCopyBOM BOOLEAN,
+                                    pCopyCosts BOOLEAN) RETURNS INTEGER AS $$
 -- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple. 
 -- See www.xtuple.com/CPAL for the full text of the software license.
 DECLARE
-  pSItemid      ALIAS FOR $1;
-  pTItemNumber  ALIAS FOR $2;
-  pCopyBOM      ALIAS FOR $3;
-  pCopyCosts    ALIAS FOR $4;
-
   _itemid       INTEGER;
+
 BEGIN
 
   _itemid := copyItem(pSItemid, pTItemNumber);
@@ -136,19 +132,18 @@ BEGIN
   RETURN _itemid;
 
 END;
-$$ LANGUAGE 'plpgsql';
+$$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE FUNCTION copyItem(INTEGER, TEXT, BOOLEAN, BOOLEAN, BOOLEAN, BOOLEAN) RETURNS INTEGER AS $$
+CREATE OR REPLACE FUNCTION copyItem(pSItemid INTEGER,
+                                    pTItemNumber TEXT,
+                                    pCopyBOM BOOLEAN,
+                                    pCopyBOO BOOLEAN,   -- deprecated - xtmfg-specific
+                                    pCopyCosts BOOLEAN,
+                                    pCopyUsedAt BOOLEAN -- deprecated - xtmfg-specfic
+                                   ) RETURNS INTEGER AS $$
 -- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple. 
 -- See www.xtuple.com/CPAL for the full text of the software license.
-DECLARE
-  pSItemid ALIAS FOR $1;
-  pTItemNumber ALIAS FOR $2;
-  pCopyBOM ALIAS FOR $3;
-  pCopyBOO ALIAS FOR $4;        -- deprecated - xtmfg-specific
-  pCopyCosts ALIAS FOR $5;
-  pCopyUsedAt ALIAS FOR $6;     -- deprecated - xtmfg-specific
 BEGIN
   RETURN copyItem(pSItemid, pTItemNumber, pCopyBOM, pCopyCosts);
 END;
-$$ LANGUAGE 'plpgsql';
+$$ LANGUAGE plpgsql;

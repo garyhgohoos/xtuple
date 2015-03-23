@@ -1,9 +1,7 @@
-CREATE OR REPLACE FUNCTION fetchItemUomConvTypes(integer)
-  RETURNS text[] AS '
+CREATE OR REPLACE FUNCTION fetchItemUomConvTypes(pItemUomConvId INTEGER) RETURNS TEXT[] AS $$
 -- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple. 
 -- See www.xtuple.com/CPAL for the full text of the software license.
 DECLARE
-  pItemUomConvId ALIAS FOR $1;
   _p RECORD;
   _result text[];
   _cnt INTEGER;
@@ -12,8 +10,7 @@ BEGIN
 
   _cnt := 0;
 
-  FOR _p IN SELECT
-    uomtype_name
+  FOR _p IN SELECT uomtype_name
   FROM itemuomconv, itemuom, uomtype
   WHERE ((itemuomconv_id=pItemUomConvId)
   AND (itemuomconv_id=itemuom_itemuomconv_id)
@@ -25,4 +22,4 @@ BEGIN
 
   RETURN _result;
 END;
-' LANGUAGE 'plpgsql';
+$$ LANGUAGE plpgsql;

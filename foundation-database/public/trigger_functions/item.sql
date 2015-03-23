@@ -12,7 +12,7 @@ BEGIN
     NEW.item_picklist := FALSE;
     NEW.item_sold := FALSE;
     NEW.item_prodcat_id := -1;
-    NEW.item_exclusive := false;
+    NEW.item_exclusive := FALSE;
     NEW.item_listprice := 0;
     NEW.item_upccode := '';
     NEW.item_prodweight := 0;
@@ -20,13 +20,13 @@ BEGIN
   END IF;
 
   IF (NEW.item_type NOT IN ('M','R')) THEN
-    NEW.item_config := false;
+    NEW.item_config := FALSE;
   END IF;
 
   RETURN NEW;
 
 END;
-$$ LANGUAGE 'plpgsql';
+$$ LANGUAGE plpgsql;
 
 DROP TRIGGER IF EXISTS itemTrigger ON item;
 CREATE TRIGGER itemTrigger
@@ -75,11 +75,9 @@ BEGIN
     END IF;
   END IF;
 
-  IF ( SELECT (metric_value='t')
-       FROM metric
-       WHERE (metric_name='ItemChangeLog') ) THEN
+-- Changelog comments
+  IF (fetchMetricBool('ItemChangeLog')) THEN
 
---  Cache the cmnttype_id for ChangeLog
     SELECT cmnttype_id INTO _cmnttypeid
     FROM cmnttype
     WHERE (cmnttype_name='ChangeLog');
@@ -158,8 +156,6 @@ BEGIN
                                  '" to "' || formatSalesPrice(NEW.item_listprice) || '"' ) );
         END IF;
 
--- Add New stuff
-
         IF (OLD.item_type <> NEW.item_type) THEN
           PERFORM postComment( _cmnttypeid, 'I', NEW.item_id,
                                ( 'Type Changed from "' || OLD.item_type ||
@@ -235,29 +231,19 @@ BEGIN
                                ( 'List Cost Changed from "' || formatCost(OLD.item_listcost) ||
                                  '" to "' || formatCost(NEW.item_listcost) || '"' ) );
         END IF;
--- End changes
 
       END IF;
     END IF;
   END IF;
 
-  IF (TG_OP = 'DELETE') THEN
-    DELETE FROM imageass WHERE ((imageass_source_id=OLD.item_id) AND (imageass_source='I'));
-    DELETE FROM url WHERE ((url_source_id=OLD.item_id) AND (url_source='I'));
-    DELETE FROM docass WHERE docass_source_id = OLD.item_id AND docass_source_type = 'I';
-    DELETE FROM docass WHERE docass_target_id = OLD.item_id AND docass_target_type = 'I';
-
-    RETURN OLD;
-  END IF;
-
   RETURN NEW;
 
 END;
-$$ LANGUAGE 'plpgsql';
+$$ LANGUAGE plpgsql;
 
 DROP TRIGGER IF EXISTS itemAfterTrigger ON item;
 CREATE TRIGGER itemAfterTrigger
-  AFTER INSERT OR UPDATE OR DELETE
+  AFTER INSERT OR UPDATE
   ON item
   FOR EACH ROW
   EXECUTE PROCEDURE _itemAfterTrigger();
@@ -269,14 +255,15 @@ DECLARE
 
 BEGIN
 
-  DELETE
-  FROM charass
-  WHERE charass_target_type = 'I'
-    AND charass_target_id = OLD.item_id;
+  DELETE FROM imageass WHERE ((imageass_source_id=OLD.item_id) AND (imageass_source='I'));
+  DELETE FROM url WHERE ((url_source_id=OLD.item_id) AND (url_source='I'));
+  DELETE FROM docass WHERE docass_source_id = OLD.item_id AND docass_source_type = 'I';
+  DELETE FROM docass WHERE docass_target_id = OLD.item_id AND docass_target_type = 'I';
+  DELETE FROM charass WHERE charass_target_id = OLD.item_id AND charass_target_type = 'I';
 
   RETURN OLD;
 END;
-$$ LANGUAGE 'plpgsql';
+$$ LANGUAGE plpgsql;
 
 SELECT dropIfExists('TRIGGER', 'itemAfterDeleteTrigger');
 CREATE TRIGGER itemAfterDeleteTrigger
