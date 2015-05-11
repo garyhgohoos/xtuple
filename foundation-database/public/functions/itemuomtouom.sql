@@ -55,10 +55,10 @@ BEGIN
          itemuomconv_to_uom_id, itemuomconv_to_value,
          itemuomconv_fractional
     INTO _conv
-    FROM itemuomconv
+    FROM globaluomconv
    WHERE(((itemuomconv_from_uom_id=_uomidFrom AND itemuomconv_to_uom_id=_uomidTo)
        OR (itemuomconv_from_uom_id=_uomidTo AND itemuomconv_to_uom_id=_uomidFrom))
-     AND (itemuomconv_item_id=pItemid));
+     AND (itemuomconv_item_id=pItemid OR itemuomconv_item_id IS NULL));
   IF(FOUND) THEN
     IF(_conv.itemuomconv_from_uom_id=_uomidFrom) THEN
       _valueFrom := _conv.itemuomconv_from_value;
@@ -82,10 +82,10 @@ BEGIN
            itemuomconv_to_uom_id, itemuomconv_to_value,
            itemuomconv_fractional
       INTO _conv
-      FROM itemuomconv
+      FROM globaluomconv
      WHERE(((itemuomconv_from_uom_id=_uomidFrom AND itemuomconv_to_uom_id=_uomidInv)
          OR (itemuomconv_from_uom_id=_uomidInv AND itemuomconv_to_uom_id=_uomidFrom))
-       AND (itemuomconv_item_id=pItemid));
+       AND (itemuomconv_item_id=pItemid OR itemuomconv_item_id IS NULL));
     IF(NOT FOUND) THEN
       RAISE EXCEPTION 'A conversion for item_id % from uom_id % to inv_uom_id % was not found.', pItemid, _uomidFrom, _uomidInv;
     END IF;
@@ -105,10 +105,10 @@ BEGIN
            itemuomconv_to_uom_id, itemuomconv_to_value,
            itemuomconv_fractional
       INTO _conv
-      FROM itemuomconv
+      FROM globaluomconv
      WHERE(((itemuomconv_from_uom_id=_uomidInv AND itemuomconv_to_uom_id=_uomidTo)
          OR (itemuomconv_from_uom_id=_uomidTo AND itemuomconv_to_uom_id=_uomidInv))
-       AND (itemuomconv_item_id=pItemid));
+       AND (itemuomconv_item_id=pItemid OR itemuomconv_item_id IS NULL));
     IF(NOT FOUND) THEN
       RAISE EXCEPTION 'A conversion for item_id % from uom_id % to inv_uom_id % was not found.', pItemid, _uomidTo, _uomidInv;
     END IF;

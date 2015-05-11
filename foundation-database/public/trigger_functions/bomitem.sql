@@ -87,7 +87,7 @@ BEGIN
   END IF; -- end Update specific
 
   -- Check for valid UOM
-  IF (SELECT (count(*) != 1)
+  IF (SELECT (count(*) = 0)
       FROM
              (SELECT uom_id
                 FROM item JOIN uom ON (item_inv_uom_id=uom_id)
@@ -111,7 +111,15 @@ BEGIN
                  AND (item_id=NEW.bomitem_item_id) 
                  AND (itemuom_itemuomconv_id=itemuomconv_id) 
                  AND (uomtype_id=itemuom_uomtype_id) 
-                 AND (uomtype_name='MaterialIssue'))) AS data
+                 AND (uomtype_name='MaterialIssue'))
+              UNION
+              SELECT uom_id
+                FROM uomconv JOIN uom ON (uomconv_from_uom_id=uom_id)
+               WHERE (uomconv_global)
+              UNION
+              SELECT uom_id
+                FROM uomconv JOIN uom ON (uomconv_to_uom_id=uom_id)
+               WHERE (uomconv_global)) AS data
         WHERE (uom_id=NEW.bomitem_uom_id)) THEN
     RAISE EXCEPTION 'Unit of Measure Invalid for Material Issue.';
   END IF;
