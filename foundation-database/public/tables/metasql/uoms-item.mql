@@ -5,6 +5,8 @@
 -- Copyright (c) 1999-2015 by OpenMFG LLC, d/b/a xTuple.
 -- See www.xtuple.com/CPAL for the full text of the software license.
 
+SELECT DISTINCT uom_id, uom_name
+FROM (
 <? if exists("uom_id") ?>
 SELECT uom_id, uom_name
   FROM uom
@@ -49,4 +51,19 @@ SELECT uom_id, uom_name
 <? if exists("uomtype") ?>
    AND (uomtype_name=<? value("uomtype") ?>)
 <? endif ?>
+UNION
+SELECT uom_id, uom_name
+  FROM item
+  JOIN uomconv ON (uomconv_to_uom_id=item_inv_uom_id)
+  JOIN uom ON (uom_id=uomconv_from_uom_id)
+ WHERE (item_id=<? value("item_id") ?>)
+   AND (uomconv_global)
+UNION
+SELECT uom_id, uom_name
+  FROM item
+  JOIN uomconv ON (uomconv_from_uom_id=item_inv_uom_id)
+  JOIN uom ON (uom_id=uomconv_to_uom_id)
+ WHERE (item_id=<? value("item_id") ?>)
+   AND (uomconv_global)
+ ) AS data
  ORDER BY uom_name;
