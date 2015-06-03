@@ -17,7 +17,7 @@ select createDoctype( 7, 'BOI',  'BOI', '',      'Routing Item',     'booitem', 
 select createDoctype( 8, 'CRMA', 'CRMA', 'CRMACCT','Account',          'crmacct', 'crmacct_id', 'crmacct_number',     'crmacct_name',  'firstline(crmacct_notes)',
                      'core', '',     'crmacct_id', 'crmaccount');
 select createDoctype( 9, 'T',    'T', 'CNTCT',   'Contact',          'cntct',   'cntct_id',   'cntct_number',       'cntct_name',    'cntct_title',
-                     'core', '',     'cntct_id',   'contact');
+                     '', '',     'cntct_id',   'contact');
 select createDoctype(10, 'CNTR', 'CNTR', '',       'Contract',         'cntrct',  'cntrct_id',  'cntrct_number',      'vend_name',     'cntrct_descrip',
                      '', 'join vendinfo on cntrct_vend_id = vendid', 'cntrct_id',  'contrct');
 select createDoctype(11, 'CM',   'CM', '',      'Return',           'cmhead',  'cmhead_id',  'cmhead_number',      'cust_name',     'firstline(cmhead_comments)',
@@ -26,7 +26,7 @@ select createDoctype(12, 'CMI',  'CMI', '',      'Return Item',      'cmitem',  
                      '', 'join cmhead on cmitem_cmhead_id=cmhead_id join custinfo on cmhead_cust_id=cust_id ' ||
                      'join itemsite on cmitem_itemsite_id=itemsite_id join item on itemsite_item_id=item_id');
 select createDoctype(13, 'C',    'C', 'C', 'Customer',         'custinfo',  'cust_id',  'cust_number',        'cust_name',     'firstline(cust_comments)',
-                     'core', '',     'cust_id',    'customer');
+                     '', '',     'cust_id',    'customer');
 select createDoctype(14, 'EMP',  'EMP', 'EMP', 'Employee',         'emp',     'emp_id',     'emp_number',         'cntct_name',    'cntct_title',
                      'core', 'left outer join cntct on emp_cntct_id = cntct_id', 'emp_id', 'employee');
 select createDoctype(15, 'INCDT', 'INCDT',  'INCDT', 'Incident',         'incdt',   'incdt_id',   'incdt_number::text', 'incdt_summary', 'firstline(incdt_descrip)',
@@ -82,7 +82,7 @@ select createDoctype(36, 'TO',   'TO', '',   'Transfer Order',      'tohead',  '
 select createDoctype(37, 'TI',   'TI', '',   'Transfer Order Item', 'toitem',  'toitem_id',  'tohead_number',      'item_number',     'warehous_code',
                      '', 'join tohead on toitem_tohead_id=tohead_id join whsinfo on tohead_dest_warehous_id=warehous_id join item on toitem_item_id=item_id');
 select createDoctype(38, 'V',    'V', 'V', 'Vendor', 'vendinfo','vend_id',    'vend_number',        'vend_name',    'firstline(vend_comments)',
-                     'core', '',     'vend_id',      'vendor');
+                     '', '',     'vend_id',      'vendor');
 select createDoctype(39, 'VCH',  'VCH', 'VCH', 'Voucher', 'vohead',  'vohead_id',  'vohead_number', 'vend_name',        'firstline(vohead_notes)',
                      '', 'join vendinfo on vohead_vend_id=vend_id', 'vohead_id');
 select createDoctype(40, 'WH',   'WH', '',   'Site',       'whsinfo', 'warehous_id','warehous_code',         'warehous_descrip', 'NULL');
