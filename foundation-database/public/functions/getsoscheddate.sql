@@ -8,9 +8,9 @@ DECLARE
 BEGIN
 
   SELECT MIN(coitem_scheddate) INTO _minscheddate
-  FROM coitem
-  WHERE ( (coitem_cohead_id=pCoheadid)
-    AND   (coitem_status NOT IN ('C', 'X')) );
+  FROM cohead JOIN coitem ON (coitem_cohead_id=pCoheadid)
+  WHERE CASE WHEN (cohead_status='C') THEN coitem_status != 'X'
+             ELSE coitem_status NOT IN ('C','X') END;
 
   RETURN _minscheddate;
 

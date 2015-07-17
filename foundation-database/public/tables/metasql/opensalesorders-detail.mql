@@ -1,12 +1,13 @@
 -- Group: opensalesorders
 -- Name:  detail
 -- Notes: 
--- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple.
+-- Copyright (c) 1999-2015 by OpenMFG LLC, d/b/a xTuple.
 -- See www.xtuple.com/CPAL for the full text of the software license.
 
 SELECT DISTINCT
        cohead.*,
        COALESCE(cust_number, :error) AS cust_number,
+       COALESCE(saletype_descr, :error) AS saletype_descr,
        getSoSchedDate(cohead_id) AS scheddate, 
        getSoStatus(cohead_id) AS status,
 <? foreach("char_id_text_list") ?>
@@ -34,6 +35,7 @@ SELECT DISTINCT
 FROM cohead 
      JOIN custinfo ON (cohead_cust_id=cust_id) 
      JOIN custtype ON (cust_custtype_id=custtype_id)
+     LEFT OUTER JOIN saletype ON (cohead_saletype_id=saletype_id)
 <? if exists("selectedSites") ?> 
      JOIN coitem ON (coitem_cohead_id=cohead_id) 
      JOIN itemsite ON (coitem_itemsite_id=itemsite_id) 
@@ -91,6 +93,9 @@ WHERE((true)
 <? endif ?>
 <? if  exists("salesrep_id") ?>
   AND (cohead_salesrep_id=<? value("salesrep_id") ?>)
+<? endif ?>
+<? if  exists("saletype_id") ?>
+  AND (cohead_saletype_id=<? value("saletype_id") ?>)
 <? endif ?>
 <? literal("charClause") ?>
   ) 

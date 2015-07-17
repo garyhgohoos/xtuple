@@ -162,7 +162,7 @@ BEGIN
        FROM accnt d, accnt c
        WHERE ((d.accnt_id=pDebitid)
         AND (c.accnt_id=pCreditid))) THEN
-      RAISE EXCEPTION 'G/L Transaction can not be posted because accounts % and % reference two differnt companies.',
+      RAISE EXCEPTION 'G/L Transaction can not be posted because accounts % and % reference two different companies.',
         formatGlaccount(pDebitid), formatGlaccount(pCreditid);
     END IF;
   END IF;
@@ -171,14 +171,16 @@ BEGIN
   IF (pDebitid IN (SELECT accnt_id FROM accnt)) THEN
     _debitid := pDebitid;
   ELSE
-    SELECT getUnassignedAccntId() INTO _debitid;
+    -- Try and work out the unassigned accnt from the credit accnt
+    SELECT getUnassignedAccntId(getcompanyid(pCreditid)) INTO _debitid;
   END IF;
 
 --  Validate pCreditid
   IF (pCreditid IN (SELECT accnt_id FROM accnt)) THEN
     _creditid := pCreditid;
   ELSE
-    SELECT getUnassignedAccntId() INTO _creditid;
+    -- Try and work out the unassigned accnt from the debit accnt
+    SELECT getUnassignedAccntId(getcompanyid(pDebitid)) INTO _creditid;
   END IF;
 
 -- refuse to accept postings into closed periods

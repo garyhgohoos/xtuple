@@ -112,6 +112,7 @@ select xt.install_js('XT','Orm','xtuple', $$
         "N": ["Cost", "ExtendedPrice", "Hours", "Money", "Number", "Percent",
           "PurchasePrice", "Quantity", "QuantityPer", "SalesPrice", "UnitRatio", "Weight"],
         "S": ["String", "Phone", "Url", "Email"],
+        "T": ["Interval"],
         "U": ["String"], /* e.g. char */
         "X": ["Null"]
       };
@@ -587,10 +588,7 @@ select xt.install_js('XT','Orm','xtuple', $$
 
               /* Add inheritance and constraints where applicable */
               if (!isView) {
-                // TODO: We cannot use inheritance.
-                //query = "select xt.add_inheritance('{table}', 'xt.obj'); " +
-                //        "select xt.add_constraint('{tableName}', '{tableName}_obj_uui_id','unique(obj_uuid)', '{schemaName}'); ";
-                query = "select xt.add_constraint('{tableName}', '{tableName}_obj_uui_id','unique(obj_uuid)', '{schemaName}'); ";
+                query = "select xt.add_constraint('{tableName}', '{tableName}_obj_uuid_id','unique(obj_uuid)', '{schemaName}'); ";
                 query = query.replace(/{table}/, orm.table)
                              .replace(/{tableName}/g, tableName)
                              .replace(/{schemaName}/, schemaName || 'public');
@@ -627,7 +625,7 @@ select xt.install_js('XT','Orm','xtuple', $$
           /* handle the nested and natural key cases */
           if (prop.toOne.isNested === true || nkey) {
             col = col.replace('{select}',
-               SELECT.replace('{columns}',  prop.toOne.isNested ? '"' + type + '"' : nkey)
+               SELECT.replace('{columns}',  prop.toOne.isNested ? '"' + type + '"' : '"' + nkey + '"')
                      .replace('{table}',  table)
                      .replace('{conditions}', conditions))
                      .replace('{alias}', alias)
@@ -646,7 +644,7 @@ select xt.install_js('XT','Orm','xtuple', $$
           iorm = Orm.fetch(base.nameSpace, toMany.type, {superUser: true});
           pkey = Orm.primaryKey(iorm);
           nkey = Orm.naturalKey(iorm);
-          column = toMany.isNested ? type : nkey;
+          column = toMany.isNested ? type : '"' + nkey + '"';
           col = 'array({select}) as "{alias}"',
           orderBy2 = 'order by ' + pkey;
 
@@ -659,6 +657,16 @@ select xt.install_js('XT','Orm','xtuple', $$
           } else {
             conditions = toMany.column ? type + '."' + inverse + '" = ' +
               (toMany.isBase ? "t1" : tblAlias) + '.' + toMany.column : 'true';
+
+            /*
+              Document associations have a second key that must be joined on here,
+              to avoid different business objects with the same ID picking up
+              each other's document associations
+            */
+            if (toMany.sourceType) {
+              conditions = conditions + " AND " + type + ".\"sourceType\" = '" +
+                toMany.sourceType + "'";
+            }
           }
 
           /* build select */

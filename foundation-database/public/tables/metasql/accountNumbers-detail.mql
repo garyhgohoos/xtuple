@@ -1,7 +1,7 @@
 -- Group: accountNumbers
 -- Name: detail
 -- Notes: used by accountNumbers
--- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple.
+-- Copyright (c) 1999-2015 by OpenMFG LLC, d/b/a xTuple.
 -- See www.xtuple.com/CPAL for the full text of the software license.
 
 SELECT accnt_id, *,
@@ -23,5 +23,10 @@ SELECT accnt_id, *,
 <? if not exists("showInactive") ?>
   AND COALESCE(accnt_active, false)
 <? endif ?>
+<? if exists("accnt_type") ?>
+  AND accnt_type = <? value("accnt_type") ?>
+<? endif ?>
+<? if exists("subaccnt_type") ?>
+  AND subaccnttype_id = <? value("subaccnt_type") ?>
+<? endif ?>
 ORDER BY accnt_number, accnt_sub, accnt_profit;
-

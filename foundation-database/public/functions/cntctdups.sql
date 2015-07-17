@@ -121,7 +121,17 @@ BEGIN
                 cntct_name,
 		crmacct_number, 
 		crmacct_name,
-		addr.*,
+		addr_id,
+		addr_active,
+		addr_line1,
+		addr_line2,
+		addr_line3,
+		addr_city,
+		addr_state,
+		addr_postalcode,
+		addr_country,
+		addr_notes,
+		addr_number,
 		0 AS cntctdup_level
              FROM cntct()
                LEFT OUTER JOIN crmacct ON (cntct_crmacct_id=crmacct_id) 

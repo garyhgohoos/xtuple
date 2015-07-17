@@ -2,7 +2,7 @@
   "author": "xTuple <dev@xtuple.com>",
   "name": "xtuple",
   "description": "xTuple Enterprise Resource Planning Mobile-Web client",
-  "version": "4.7.0",
+  "version": "4.9.0",
   "repository": {
     "type": "git",
     "url": "https://github.com/xtuple/xtuple.git"
@@ -11,7 +11,8 @@
     "async": "0.2.x",
     "backbone": "0.9.10",
     "backbone-relational": "0.8.0",
-    "bcrypt": "0.7.x",
+    "bcrypt": "^0.8.0",
+    "bower": "^1.3.12",
     "colors": "0.6.x",
     "commander": "1.2.x",
     "congruence": "~1.2.4",
@@ -19,13 +20,14 @@
     "ejs": "0.8.x",
     "express": "3.1.x",
     "fluentreports": "git://github.com/xtuple/fluentreports.git",
-    "ipp": "0.0.5",
+    "imap": "^0.8.14",
     "json-patch": "git://github.com/xtuple/JSON-Patch.git",
     "less": "1.5.0",
+    "mailparser": "^0.4.6",
     "moment": "2.4.x",
-    "nodemailer": "0.3.x",
-    "npm":"1.4.x",
     "node-forge": "0.6.x",
+    "nodemailer": "0.3.x",
+    "npm": "1.4.x",
     "oauth2orize": "0.1.x",
     "oauth2orize-jwt-bearer": "0.1.x",
     "passport": "0.1.x",
@@ -35,17 +37,17 @@
     "passport-oauth2-client-password": "0.1.x",
     "passport-oauth2-jwt-bearer": "0.1.x",
     "paynode": "0.3.6",
+    "pegjs": "0.8.x",
     "pg": "0.14.x",
     "qr-image": "1.1.x",
     "request": "2.14.x",
     "rimraf": "2.2.x",
     "rjson": "~0.2.4",
     "socket.io": "0.9.x",
-    "underscore": "1.4.x",
-    "winston": "0.7.x",
+    "underscore": "1.6.x",
     "underscore.string": "~2.3.3",
-    "xtuple-linguist": "0.1.x",
-    "jquery": "~2.1.1"
+    "winston": "0.7.x",
+    "xtuple-linguist": "0.1.x"
   },
   "devDependencies": {
     "chai": "1.5.x",
@@ -57,7 +59,6 @@
     "csslint": "~0.10.0"
   },
   "optionalDependencies": {
-    "xtuple-query": "~1.0.0",
     "googleapis": "~0.4.6"
   },
   "engines": {
@@ -73,9 +74,11 @@
     "jsdoc-api": "rm -rf scripts/output;./node_modules/xtuple-documentation/node_modules/jsdoc/jsdoc -t ./node_modules/xtuple-documentation/jsdoc-setup/api-templates -c ./node_modules/xtuple-documentation/jsdoc-setup/jsdoc.conf.json -d ./scripts/output -r ./lib/backbone-x/source ./lib/tools/source ./lib/enyo-x/source/widgets ./lib/enyo-x/source/views ./lib/enyo-x/source/app.js ./lib/enyo-x/source/core.js ./node_modules/xtuple-documentation/jsdoc-setup/api-readme.md",
     "jsdoc-specs": "rm -rf scripts/output/*;mkdir scripts/output/tech-specs;./node_modules/xtuple-documentation/node_modules/jsdoc/jsdoc -t ./node_modules/xtuple-documentation/jsdoc-setup/spec-templates -c ./node_modules/xtuple-documentation/jsdoc-setup/jsdoc.conf.json -d ./scripts/output/tech-specs/ -r ./test/specs ./node_modules/xtuple-documentation/jsdoc-setup/tech-specs-readme.md;mkdir scripts/output/user-specs;./node_modules/xtuple-documentation/node_modules/jsdoc/jsdoc -t ./node_modules/xtuple-documentation/jsdoc-setup/spec-templates -c ./node_modules/xtuple-documentation/jsdoc-setup/jsdoc-user.conf.json -d ./scripts/output/user-specs/ -r ./test/specs ./node_modules/xtuple-documentation/jsdoc-setup/user-specs-readme.md;",
     "preinstall": "cd node-datasource/lib/query ; npm install",
+    "postinstall": "bower install --config.interactive=false --allow-root",
     "start": "node_modules/.bin/nodemon node-datasource/main.js --debug --watch node-datasource",
     "test-build": "./node_modules/.bin/mocha -R spec test/build/build_app.js",
     "test": "./node_modules/.bin/mocha -R spec test/lib/login.js test/models/* test/database/* test/extensions/* test/lib/test_runner.js",
-    "test-datasource": "./node_modules/.bin/mocha -R spec test/routes/*"
+    "test-datasource": "./node_modules/.bin/mocha -R spec test/routes/*",
+    "test-database": "./node_modules/.bin/mocha -R spec test/database/*"
   }
 }

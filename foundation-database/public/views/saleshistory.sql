@@ -6,7 +6,7 @@ SELECT *,
        round((cohist_qtyshipped * custunitprice), 2) AS custextprice,
        round((cohist_qtyshipped * cohist_unitcost), 4) AS extcost,
        round((cohist_qtyshipped * baseunitprice) - (cohist_qtyshipped * cohist_unitcost), 2) AS margin,
-       CASE WHEN (cohist_qtyshipped * baseunitprice > 0.0) THEN
+       CASE WHEN (round(cohist_qtyshipped * baseunitprice, 2) > 0.0) THEN
             (round((cohist_qtyshipped * baseunitprice) - (cohist_qtyshipped * cohist_unitcost), 2) /
              round((cohist_qtyshipped * baseunitprice), 2))
             ELSE 0.0
@@ -39,6 +39,7 @@ SELECT cohist.*,
        (item_descrip1 || ' ' || item_descrip2) AS itemdescription,
        COALESCE(item_number, cohist_misc_descrip) AS itemnumber,
        prodcat_id, prodcat_code,
+       classcode_id, classcode_code,
        currtobase(cohist_curr_id, cohist_commission, cohist_invcdate) AS basecommission,
        currtobase(cohist_curr_id, cohist_unitprice, cohist_invcdate) AS baseunitprice,
        currtocurr(cohist_curr_id, cust_curr_id, cohist_unitprice, cohist_invcdate) AS custunitprice
@@ -53,6 +54,7 @@ FROM cohist JOIN custinfo ON (cust_id=cohist_cust_id)
             JOIN site() ON (warehous_id=itemsite_warehous_id)
             JOIN item ON (item_id=itemsite_item_id)
             JOIN prodcat ON (prodcat_id=item_prodcat_id)
+            JOIN classcode ON (classcode_id=item_classcode_id)
      ) AS data;
 
 REVOKE ALL ON TABLE saleshistory FROM PUBLIC;

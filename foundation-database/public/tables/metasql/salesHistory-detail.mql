@@ -83,6 +83,9 @@ WHERE ( (true)
 <? if exists("item_id") ?>
   AND  (item_id=<? value("item_id") ?>)
 <? endif ?>
+<? if exists("item_pattern") ?>
+  AND  (itemnumber ~* <? value("item_pattern") ?>)
+<? endif ?>
 <? if exists("prodcat_id") ?>
   AND (prodcat_id=<? value("prodcat_id") ?>)
 <? endif ?>
@@ -91,7 +94,9 @@ WHERE ( (true)
                       FROM prodcat
                       WHERE (prodcat_code ~ <? value("prodcat_pattern") ?>)))
 <? endif ?>
-
+<? if exists("classcode_id") ?>
+  AND (classcode_id=<? value("classcode_id") ?>)
+<? endif ?>
 <? if exists("warehous_id") ?>
   AND  (warehous_id=<? value("warehous_id") ?>)
 <? endif ?>

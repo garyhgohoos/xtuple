@@ -4,10 +4,6 @@ create or replace function xt.record_did_change() returns trigger as $$
 
 return (function () {
 
-  if (typeof XT === 'undefined') {
-    plv8.execute("select xt.js_init();");
-  }
-
  var data = Object.create(XT.Data),
    table = TG_TABLE_SCHEMA + "." + TG_TABLE_NAME,
    oid = data.getTableOid(table),

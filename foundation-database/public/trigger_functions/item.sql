@@ -29,7 +29,11 @@ END;
 $$ LANGUAGE 'plpgsql';
 
 DROP TRIGGER IF EXISTS itemTrigger ON item;
-CREATE TRIGGER itemTrigger BEFORE INSERT OR UPDATE ON item FOR EACH ROW EXECUTE PROCEDURE _itemTrigger();
+CREATE TRIGGER itemTrigger
+  BEFORE INSERT OR UPDATE
+  ON item
+  FOR EACH ROW
+  EXECUTE PROCEDURE _itemTrigger();
 
 CREATE OR REPLACE FUNCTION _itemAfterTrigger () RETURNS TRIGGER AS $$
 -- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple.
@@ -252,4 +256,66 @@ END;
 $$ LANGUAGE 'plpgsql';
 
 DROP TRIGGER IF EXISTS itemAfterTrigger ON item;
-CREATE TRIGGER itemAfterTrigger AFTER INSERT OR UPDATE OR DELETE ON item FOR EACH ROW EXECUTE PROCEDURE _itemAfterTrigger();
+CREATE TRIGGER itemAfterTrigger
+  AFTER INSERT OR UPDATE OR DELETE
+  ON item
+  FOR EACH ROW
+  EXECUTE PROCEDURE _itemAfterTrigger();
+
+CREATE OR REPLACE FUNCTION _itemAfterDeleteTrigger() RETURNS TRIGGER AS $$
+-- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple.
+-- See www.xtuple.com/CPAL for the full text of the software license.
+DECLARE
+
+BEGIN
+
+  DELETE
+  FROM charass
+  WHERE charass_target_type = 'I'
+    AND charass_target_id = OLD.item_id;
+
+  RETURN OLD;
+END;
+$$ LANGUAGE 'plpgsql';
+
+SELECT dropIfExists('TRIGGER', 'itemAfterDeleteTrigger');
+CREATE TRIGGER itemAfterDeleteTrigger
+  AFTER DELETE
+  ON item
+  FOR EACH ROW
+  EXECUTE PROCEDURE _itemAfterDeleteTrigger();
+
+CREATE OR REPLACE FUNCTION public._item_uom_check()
+  RETURNS trigger AS $$
+-- Copyright (c) 1999-2015 by OpenMFG LLC, d/b/a xTuple.
+-- See www.xtuple.com/CPAL for the full text of the software license.
+
+-- This trigger checks the all item uom_id columns have valid conversion ratios.
+BEGIN
+
+  IF (NEW.item_active AND NEW.item_sold) THEN
+    IF (NEW.item_inv_uom_id <> NEW.item_price_uom_id) THEN
+      BEGIN
+        PERFORM itemuomtouomratio(NEW.item_id, NEW.item_inv_uom_id, NEW.item_price_uom_id)
+        FROM item
+        WHERE TRUE
+          AND item_id = NEW.item_id;
+      EXCEPTION
+        WHEN SQLSTATE 'P0001' THEN
+          RAISE EXCEPTION 'An invalid UOM was set on this item. Please verify that the Unit Price UOM has a conversion to the Inventory UOM.';
+      END;
+    END IF;
+
+  END IF;
+
+  RETURN NEW;
+
+END;
+$$ LANGUAGE 'plpgsql';
+ALTER FUNCTION public._item_uom_check() OWNER TO admin;
+
+SELECT dropIfExists('TRIGGER', 'item_uom_check');
+CREATE TRIGGER item_uom_check
+  BEFORE INSERT OR UPDATE ON public.item
+  FOR EACH ROW
+  EXECUTE PROCEDURE public._item_uom_check();

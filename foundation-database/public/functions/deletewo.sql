@@ -1,22 +1,18 @@
-CREATE OR REPLACE FUNCTION deleteWo(INTEGER, BOOLEAN) RETURNS INTEGER AS $$
+CREATE OR REPLACE FUNCTION deleteWo(pWoid INTEGER,
+                                    pDeleteChildren BOOLEAN) RETURNS INTEGER AS $$
 -- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple.
 -- See www.xtuple.com/CPAL for the full text of the software license.
-DECLARE
-  pWoid ALIAS FOR $1;
-  deleteChildren ALIAS FOR $2;
-
 BEGIN
-  RETURN deleteWo(pWoid, deleteChildren, FALSE);
+  RETURN deleteWo(pWoid, pDeleteChildren, FALSE);
 END;
-$$ LANGUAGE 'plpgsql';
+$$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE FUNCTION deleteWo(INTEGER, BOOLEAN, BOOLEAN) RETURNS INTEGER AS $$
+CREATE OR REPLACE FUNCTION deleteWo(pWoid INTEGER,
+                                    pDeleteChildren BOOLEAN,
+                                    pDeleteForce BOOLEAN) RETURNS INTEGER AS $$
 -- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple.
 -- See www.xtuple.com/CPAL for the full text of the software license.
 DECLARE
-  pWoid ALIAS FOR $1;
-  deleteChildren ALIAS FOR $2;
-  deleteForce ALIAS FOR $3;
   woStatus CHAR(1);
   itemType CHAR(1);
   ordtype CHAR(1);
@@ -32,11 +28,15 @@ BEGIN
           JOIN item ON (item_id=itemsite_item_id)
   WHERE (wo_id=pWoid);
 
-  IF (NOT woStatus IN ('O', 'E', 'C')) THEN
-    RETURN -3;
-  END IF;
+  IF (pDeleteForce) THEN
+    IF (NOT woStatus IN ('O', 'E', 'R', 'C')) THEN
+      RETURN -3;
+    END IF;
+  ELSE
+    IF (NOT woStatus IN ('O', 'E')) THEN
+      RETURN -3;
+    END IF;
 
-  IF (NOT deleteForce) THEN
     IF (itemType = 'J') THEN
       RETURN -2;
     END IF;
@@ -88,7 +88,7 @@ BEGIN
     WHERE (wo_id=pWoid);
   END IF;
 
-  IF (deleteChildren) THEN
+  IF (pDeleteChildren) THEN
     returnCode := (SELECT MAX(deleteWo(wo_id, TRUE))
                    FROM wo
                    WHERE ((wo_ordtype='W')
@@ -97,4 +97,4 @@ BEGIN
 
   RETURN 0;
 END;
-$$ LANGUAGE 'plpgsql';
+$$ LANGUAGE plpgsql;

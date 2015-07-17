@@ -1,7 +1,7 @@
 -- Group: distributeInventory
 -- Name: locations
 -- Notes: 
--- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple.
+-- Copyright (c) 1999-2015 by OpenMFG LLC, d/b/a xTuple.
 -- See www.xtuple.com/CPAL for the full text of the software license.
 
 SELECT id, type, locationname, defaultlocation,
@@ -20,7 +20,7 @@ SELECT id, type, locationname, defaultlocation,
 FROM ( 
   <? if exists("cNoIncludeLotSerial") ?>
     SELECT location_id AS id, <? value("locationType") ?> AS type,
-           formatLocationName(location_id) AS locationname,
+           formatLocationName(location_id) AS locationname, location_whsezone_id,
            CASE WHEN (<? value("transtype") ?> = 'R' AND location_id=itemsite_recvlocation_id) THEN TRUE
                 WHEN (<? value("transtype") ?> = 'I' AND location_id=itemsite_issuelocation_id) THEN TRUE
                 WHEN (<? value("transtype") ?> = 'O' AND location_id=itemsite_location_id) THEN TRUE
@@ -41,8 +41,8 @@ FROM (
       AND (itemlocdist_id=<? value("itemlocdist_id") ?>) ) 
   <? elseif exists("cIncludeLotSerial") ?>
     SELECT itemloc_id AS id, <? value("itemlocType") ?> AS type,
-           COALESCE(formatLocationName(location_id),
-           <? value("undefined") ?>) AS locationname,
+           COALESCE(formatLocationName(location_id), 
+           <? value("undefined") ?>) AS locationname, location_whsezone_id,
            (location_id IS NOT NULL AND
              CASE WHEN (<? value("transtype") ?> = 'R' AND location_id=itemsite_recvlocation_id) THEN TRUE
                   WHEN (<? value("transtype") ?> = 'I' AND location_id=itemsite_issuelocation_id) THEN TRUE
@@ -74,7 +74,7 @@ FROM (
      AND (source.itemlocdist_id=<? value("itemlocdist_id") ?>) ) 
     UNION 
     SELECT location_id AS id, <? value("locationType") ?> AS type,
-           formatLocationName(location_id) AS locationname,
+           formatLocationName(location_id) AS locationname,  location_whsezone_id,
            CASE WHEN (<? value("transtype") ?> = 'R' AND location_id=itemsite_recvlocation_id) THEN TRUE
                 WHEN (<? value("transtype") ?> = 'I' AND location_id=itemsite_issuelocation_id) THEN TRUE
                 WHEN (<? value("transtype") ?> = 'O' AND location_id=itemsite_location_id) THEN TRUE
@@ -106,5 +106,8 @@ WHERE ((TRUE)
 <? endif ?>
 <? if exists("showQtyOnly") ?>
   AND (qty > 0) 
+<? endif ?>
+<? if exists("zone") ?>
+  AND (location_whsezone_id = <? value("zone") ?>)
 <? endif ?>
 ) ORDER BY locationname;

@@ -39,6 +39,12 @@ BEGIN
     END IF;
   END IF;
 
+  IF (TG_OP = 'UPDATE') THEN
+    IF (NEW.pohead_status = 'O' AND OLD.pohead_released IS NULL) THEN
+      NEW.pohead_released := CURRENT_DATE;
+    END IF;
+  END IF;
+
   IF ( SELECT (metric_value='t')
        FROM metric
        WHERE (metric_name='POChangeLog') ) THEN
@@ -81,7 +87,11 @@ END;
 $$ LANGUAGE 'plpgsql';
 
 DROP TRIGGER IF EXISTS poheadTrigger ON pohead;
-CREATE TRIGGER poheadTrigger BEFORE INSERT OR UPDATE OR DELETE ON pohead FOR EACH ROW EXECUTE PROCEDURE _poheadTrigger();
+CREATE TRIGGER poheadTrigger
+  BEFORE INSERT OR UPDATE OR DELETE
+  ON pohead
+  FOR EACH ROW
+  EXECUTE PROCEDURE _poheadTrigger();
 
 CREATE OR REPLACE FUNCTION _poheadTriggerAfter() RETURNS TRIGGER AS $$
 -- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple.
@@ -109,4 +119,31 @@ END;
 $$ LANGUAGE 'plpgsql';
 
 SELECT dropifexists('TRIGGER','poheadTriggerAfter');
-CREATE TRIGGER poheadTriggerAfter AFTER UPDATE ON pohead FOR EACH ROW EXECUTE PROCEDURE _poheadTriggerAfter();
+CREATE TRIGGER poheadTriggerAfter
+  AFTER UPDATE
+  ON pohead
+  FOR EACH ROW
+  EXECUTE PROCEDURE _poheadTriggerAfter();
+
+CREATE OR REPLACE FUNCTION _poheadAfterDeleteTrigger() RETURNS TRIGGER AS $$
+-- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple.
+-- See www.xtuple.com/CPAL for the full text of the software license.
+DECLARE
+
+BEGIN
+
+  DELETE
+  FROM charass
+  WHERE charass_target_type = 'PO'
+    AND charass_target_id = OLD.pohead_id;
+
+  RETURN OLD;
+END;
+$$ LANGUAGE 'plpgsql';
+
+SELECT dropIfExists('TRIGGER', 'poheadAfterDeleteTrigger');
+CREATE TRIGGER poheadAfterDeleteTrigger
+  AFTER DELETE
+  ON pohead
+  FOR EACH ROW
+  EXECUTE PROCEDURE _poheadAfterDeleteTrigger();

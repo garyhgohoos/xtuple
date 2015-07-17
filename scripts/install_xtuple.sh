@@ -161,9 +161,10 @@ install_packages() {
 	# npm no longer supports its self-signed certificates
 	log "telling npm to use known registrars..."
 	npm config set ca ""
-        sudo chown -R $USER $HOME/.npm
 
   log "installing npm modules..."
+  sudo npm install -g bower
+  sudo chown -R $USER $HOME/.npm
   npm install --unsafe-perm 2>&1 | tee -a $LOG_FILE
 }
 
@@ -198,7 +199,8 @@ setup_postgres() {
   log "copying configs..."
 	sudo cp $PGDIR/postgresql.conf $PGDIR/postgresql.conf.default
 	sudo cat $PGDIR/postgresql.conf.default | sed "s/#listen_addresses = \S*/listen_addresses = \'*\'/" | sed "s/#custom_variable_classes = ''/custom_variable_classes = 'plv8'/" | sudo tee $PGDIR/postgresql.conf > /dev/null
-	sudo chown postgres $PGDIR/postgresql.conf
+	echo "plv8.start_proc = 'xt.js_init'" | sudo tee -a $PGDIR/postgresql.conf
+  sudo chown postgres $PGDIR/postgresql.conf
 
 	sudo cp $PGDIR/pg_hba.conf $PGDIR/pg_hba.conf.default
 	sudo cat $PGDIR/pg_hba.conf.default | sed "s/local\s*all\s*postgres.*/local\tall\tpostgres\ttrust/" | sed "s/local\s*all\s*all.*/local\tall\tall\ttrust/" | sed "s#host\s*all\s*all\s*127\.0\.0\.1.*#host\tall\tall\t127.0.0.1/32\ttrust#" | sudo tee $PGDIR/pg_hba.conf > /dev/null
@@ -208,13 +210,12 @@ setup_postgres() {
 	sudo service postgresql restart
 
   log "dropping existing db, if any..."
-	sudo -u postgres dropdb $DATABASE || true
+	dropdb --if-exists -U postgres $DATABASE
 
 	cdir $BASEDIR/postgres
 
   log "Setup database"
-    sudo wget -qO init.sql http://sourceforge.net/projects/postbooks/files/03%20PostBooks-databases/4.2.1/init.sql/download
-	sudo -u postgres psql -q -f 'init.sql' 2>&1 | tee -a $LOG_FILE
+	psql -U postgres -q -f $XT_DIR/lib/orm/source/init.sql 2>&1 | tee -a $LOG_FILE
 }
 
 init_everythings() {

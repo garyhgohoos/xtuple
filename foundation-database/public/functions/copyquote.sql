@@ -82,7 +82,7 @@ BEGIN
   SELECT charass_target_type, b.quitem_id,
          charass_char_id, charass_value
     FROM quitem a, charass, quitem b
-   WHERE ((charass_target_type='SI')
+   WHERE ((charass_target_type='QI')
      AND  (charass_target_id=a.quitem_id)
      AND  (a.quitem_quhead_id=pQuheadid)
      AND  (b.quitem_quhead_id=_quheadid)

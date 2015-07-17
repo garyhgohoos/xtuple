@@ -49,7 +49,7 @@ select xt.install_js('XT','Rest','xtuple', $$
         params,
         args,
         method;
-      
+
       dataHash.superUser = false;
 
       if (dataHash.username) { XT.username = dataHash.username; }
@@ -204,7 +204,7 @@ select xt.install_js('XT','Rest','xtuple', $$
       XT.username = undefined;
 
       XT.message(200, "OK");
-    
+
       return ret;
     },
 

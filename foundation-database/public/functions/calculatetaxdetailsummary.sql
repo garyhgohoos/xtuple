@@ -109,7 +109,7 @@ BEGIN
    ELSIF (pOrderType='VO') THEN
      _table := 'voheadtax';
    ELSIF (pOrderType='TO') THEN
-     _table := 'tohead';
+     _table := 'toheadtax';
    END IF;
 
    IF pOrderType = 'I' AND (pDisplayType IN ('L','T')) THEN

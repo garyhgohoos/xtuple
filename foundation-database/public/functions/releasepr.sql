@@ -161,8 +161,9 @@ BEGIN
       poitem_duedate, poitem_itemsite_id,
       poitem_vend_item_descrip, poitem_vend_uom,
       poitem_invvenduomratio, poitem_qty_ordered, 
-      poitem_unitprice, poitem_vend_item_number, 
-      poitem_itemsrc_id, poitem_order_id, poitem_order_type, poitem_prj_id, poitem_stdcost, 
+      poitem_unitprice, poitem_vend_item_number, poitem_itemsrc_id,
+      poitem_order_id, poitem_order_type,
+      poitem_prj_id, poitem_stdcost, 
       poitem_manuf_name, poitem_manuf_item_number, 
       poitem_manuf_item_descrip, poitem_taxtype_id, poitem_comments )
   VALUES
@@ -170,8 +171,16 @@ BEGIN
       _pr.pr_duedate, _pr.itemsite_id,
       COALESCE(_i.itemsrc_vend_item_descrip, TEXT('')), COALESCE(_i.itemsrc_vend_uom, TEXT('')),
       COALESCE(_i.itemsrc_invvendoruomratio, 1.00), (_pr.pr_qtyreq / COALESCE(_i.itemsrc_invvendoruomratio, 1.00)),
-      _price, COALESCE(_i.itemsrc_vend_item_number, TEXT('')),
-      _i.itemsrc_id, _pr.pr_order_id, _pr.pr_order_type, _pr.prj_id, stdcost(_i.itemsrc_item_id),
+      _price, COALESCE(_i.itemsrc_vend_item_number, TEXT('')), _i.itemsrc_id,
+      CASE WHEN (_pr.parentwo > 0) THEN _pr.parentwo
+           WHEN (_pr.parentso > 0) THEN _pr.parentso
+           ELSE -1
+      END,
+      CASE WHEN (_pr.parentwo > 0) THEN 'W'
+           WHEN (_pr.parentso > 0) THEN 'S'
+           ELSE ''
+      END,
+      _pr.prj_id, stdcost(_i.itemsrc_item_id),
       COALESCE(_i.itemsrc_manuf_name, TEXT('')), COALESCE(_i.itemsrc_manuf_item_number, TEXT('')),
       COALESCE(_i.itemsrc_manuf_item_descrip, TEXT('')), _taxtypeid,
       COALESCE(_pr.pr_releasenote, TEXT('')));
@@ -185,6 +194,35 @@ BEGIN
   FROM charass
   WHERE ( (charass_target_type='PR')
     AND   (charass_target_id=pPrId) );
+
+  -- Copy characteristics from the coitem to the poitem
+  IF (_pr.parentso > 0) THEN
+    INSERT INTO charass
+      ( charass_target_type, charass_target_id, charass_char_id,
+        charass_value, charass_default, charass_price )
+    SELECT 'PI', _poitemid, charass_char_id,
+           charass_value, charass_default, charass_price
+    FROM charass
+    WHERE ( (charass_target_type='SI')
+      AND   (charass_target_id=_pr.parentso) );
+  END IF;
+
+  -- Copy price override from the coitem to the poitem
+  IF (_pr.parentso > 0) THEN
+    SELECT coitem_prcost INTO _price
+    FROM coitem
+    WHERE (coitem_id=_pr.parentso);
+    IF (_price > 0) THEN
+      UPDATE poitem SET poitem_unitprice=_price
+      WHERE (poitem_id=_poitemid);
+    END IF;
+  END IF;
+
+  -- Update coitem with the poitem_id
+  IF (_pr.parentso > 0) THEN
+    UPDATE coitem SET coitem_order_id=_poitemid
+    WHERE (coitem_id=_pr.parentso);
+  END IF;
 
   -- Delete the PR
   PERFORM deletePr(pPrId);

@@ -38,6 +38,15 @@ SELECT   coitem_id AS id, coitem_cohead_id AS altId,
               ELSE ((coitem_price - coitem_unitcost) / coitem_price)
          END AS marginpercent,
          curr_abbr AS currAbbr,
+<? foreach("char_id_text_list") ?>
+         charass_alias<? literal("char_id_text_list") ?>.charass_value AS char<? literal("char_id_text_list") ?>,
+<? endforeach ?>
+<? foreach("char_id_list_list") ?>
+         charass_alias<? literal("char_id_list_list") ?>.charass_value AS char<? literal("char_id_list_list") ?>,
+<? endforeach ?>
+<? foreach("char_id_date_list") ?>
+         charass_alias<? literal("char_id_date_list") ?>.charass_value::date AS char<? literal("char_id_date_list") ?>,
+<? endforeach ?>
 -- TODO - not needed, remove? (very slow)
 --         CASE WHEN (qtyAvailable(itemsite_id, coitem_scheddate) < 0.0) THEN 'error'
 --              WHEN itemsite_useparams AND (qtyAvailable(itemsite_id, coitem_scheddate) <= itemsite_reorderlevel) THEN 'warning'

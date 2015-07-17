@@ -4,8 +4,6 @@ CREATE OR REPLACE FUNCTION createPkgSchema(TEXT, TEXT) RETURNS INTEGER AS $$
 DECLARE
   pname         ALIAS FOR $1;
   pcomment      ALIAS FOR $2;
-  _createtable  TEXT;
-  _debug        BOOL    := true;
   _namespaceoid INTEGER := -1;
   _tabs         TEXT[] := ARRAY['cmd',  'cmdarg', 'image',  'metasql',
                                 'priv', 'report', 'script', 'uiform'] ;
@@ -20,8 +18,8 @@ BEGIN
   FROM pg_namespace
   WHERE (LOWER(nspname)=LOWER(pname));
   IF (NOT FOUND) THEN
-    EXECUTE 'CREATE SCHEMA ' || LOWER(pname);
-    EXECUTE 'GRANT ALL ON SCHEMA ' || LOWER(pname) || ' TO GROUP xtrole;';
+    EXECUTE format('CREATE SCHEMA %s;', LOWER(pname));
+    EXECUTE format('GRANT ALL ON SCHEMA %s TO GROUP xtrole;', LOWER(pname));
 
     SELECT oid INTO _namespaceoid
     FROM pg_namespace
@@ -29,51 +27,49 @@ BEGIN
   END IF;
 
   FOR i IN ARRAY_LOWER(_tabs,1)..ARRAY_UPPER(_tabs,1) LOOP
-    _pkgtab := pname || '.pkg' || _tabs[i];
+    _pkgtab := 'pkg' || _tabs[i];
 
     IF NOT EXISTS(SELECT oid
                   FROM pg_class
                   WHERE ((relname=_pkgtab)
                      AND (relnamespace=_namespaceoid))) THEN
-      _createtable := 'CREATE TABLE ' || _pkgtab || ' () INHERITS (' || _tabs[i] || ');';
-      IF (_debug) THEN RAISE NOTICE '%', _createtable; END IF;
-      EXECUTE _createtable;
+      EXECUTE format('CREATE TABLE %s.%s () INHERITS (%s);',
+                     pname, _pkgtab, _tabs[i]);
 
-      EXECUTE 'ALTER TABLE ' || _pkgtab ||
-              ' ALTER ' || _tabs[i] || '_id SET NOT NULL,' ||
-              ' ADD PRIMARY KEY (' || _tabs[i] || '_id),' ||
-              ' ALTER ' || _tabs[i] || '_id SET DEFAULT NEXTVAL(''' ||
-              _tabs[i] || '_' || _tabs[i] || '_id_seq'');';
+      EXECUTE format($f$ALTER TABLE %s.%s ALTER %s_id SET NOT NULL,
+                         ADD PRIMARY KEY (%s_id),
+                         ALTER %s_id SET DEFAULT NEXTVAL('%s_%s_id_seq');$f$,
+                     pname, _pkgtab, _tabs[i], _tabs[i], _tabs[i], _tabs[i], _tabs[i]);
 
-      EXECUTE 'REVOKE ALL ON ' || _pkgtab || ' FROM PUBLIC;';
-      EXECUTE 'GRANT  ALL ON ' || _pkgtab || ' TO GROUP xtrole;';
+      EXECUTE format('REVOKE ALL ON %s.%s FROM PUBLIC;',     pname, _pkgtab);
+      EXECUTE format('GRANT  ALL ON %s.%s TO GROUP xtrole;', pname, _pkgtab);
 
       IF (_tabs[i] = 'cmdarg') THEN
-        EXECUTE 'ALTER TABLE ' || _pkgtab ||
-                ' ADD FOREIGN KEY (cmdarg_cmd_id) REFERENCES ' ||
-                pname || '.pkgcmd(cmd_id);';
+        EXECUTE format($f$ALTER TABLE %s.%s ADD FOREIGN KEY (cmdarg_cmd_id)
+                          REFERENCES %s.pkgcmd(cmd_id);$f$,
+                       pname, _pkgtab, pname);
       END IF;
 
-      EXECUTE 'SELECT dropIfExists(''TRIGGER'', ''pkg' ||
-                                   _tabs[i] || 'beforetrigger'', ''' ||
-                                   pname || ''');' ;
-      EXECUTE 'CREATE TRIGGER pkg' || _tabs[i] || 'beforetrigger ' ||
-              'BEFORE INSERT OR UPDATE OR DELETE ON ' || _pkgtab ||
-              ' FOR EACH ROW EXECUTE PROCEDURE _pkg' || _tabs[i] || 'beforetrigger();';
+      EXECUTE format('DROP TRIGGER IF EXISTS %sbeforetrigger ON %s.%s;',
+                     _pkgtab, pname, _pkgtab);
+      EXECUTE format('CREATE TRIGGER %sbeforetrigger' ||
+                     ' BEFORE INSERT OR UPDATE OR DELETE ON %s.%s' ||
+                     ' FOR EACH ROW EXECUTE PROCEDURE _%sbeforetrigger();',
+                      _pkgtab, pname, _pkgtab, _pkgtab);
 
-      EXECUTE 'SELECT dropIfExists(''TRIGGER'', ''pkg' ||
-                                   _tabs[i] || 'altertrigger'', ''' ||
-                                   pname || ''');' ;
-      EXECUTE 'CREATE TRIGGER pkg' || _tabs[i] || 'altertrigger ' ||
-              'BEFORE INSERT OR UPDATE OR DELETE ON ' || _pkgtab ||
-              ' FOR EACH ROW EXECUTE PROCEDURE _pkg' || _tabs[i] || 'altertrigger();';
+      EXECUTE format('DROP TRIGGER IF EXISTS %saltertrigger ON %s.%s;',
+                      _pkgtab, pname, _pkgtab);
+      EXECUTE format('CREATE TRIGGER %saltertrigger' ||
+                     ' BEFORE INSERT OR UPDATE OR DELETE ON %s.%s' ||
+                     ' FOR EACH ROW EXECUTE PROCEDURE _%saltertrigger();',
+                     _pkgtab, pname, _pkgtab, _pkgtab);
 
-      EXECUTE 'SELECT dropIfExists(''TRIGGER'', ''pkg' ||
-                                   _tabs[i] || 'aftertrigger'', ''' ||
-                                   pname || ''');' ;
-      EXECUTE 'CREATE TRIGGER pkg' || _tabs[i] || 'aftertrigger ' ||
-              'AFTER INSERT OR UPDATE OR DELETE ON ' || _pkgtab ||
-              ' FOR EACH ROW EXECUTE PROCEDURE _pkg' || _tabs[i] || 'aftertrigger();';
+      EXECUTE format('DROP TRIGGER IF EXISTS %saftertrigger ON %s.%s;',
+                     _pkgtab, pname, _pkgtab);
+      EXECUTE format('CREATE TRIGGER %saftertrigger' ||
+                     ' AFTER INSERT OR UPDATE OR DELETE ON %s.%s' ||
+                     ' FOR EACH ROW EXECUTE PROCEDURE _%saftertrigger();',
+                     _pkgtab, pname, _pkgtab, _pkgtab);
 
     END IF;
   END LOOP;

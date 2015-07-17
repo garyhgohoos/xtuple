@@ -10,9 +10,15 @@ regexp:true, undef:true, strict:true, trailing:true, white:true */
     exec = require('child_process').exec,
     fs = require('fs'),
     path = require('path'),
+    PEG = require("pegjs"),
     conversionMap = require("./convert_specialized").conversionMap,
     dataSource = require('../../../node-datasource/lib/ext/datasource').dataSource,
     inspectDatabaseExtensions = require("./inspect_database").inspectDatabaseExtensions;
+
+/*
+ Given a path to a manifest.js file (and a bunch of other possible options), parse,
+ aggregate, and return the sql that's listed in that file.
+*/
 
   // register extension and dependencies
   var getRegistrationSql = function (options, extensionLocation) {
@@ -25,8 +31,14 @@ regexp:true, undef:true, strict:true, trailing:true, white:true */
     registerSql = registerSql + "select xt.grant_role_ext('ADMIN', '%@');\n"
       .f(options.name);
 
-    // TODO: infer dependencies from package.json using peerDependencies
-    var dependencies = options.dependencies || [];
+    // infer dependencies from package.json -> peerDependencies
+    // infer dependencies from manifest.js -> dependencies
+    //
+    // This is all in an in-betweensy state. The idea was to use npm more for our extensions, which means
+    // putting extension metadata in package.json instead of manifest.js. This is a work in progress.
+    //
+    var isPackageJson = !!options.engines; // XXX this is a pretty rough proxy
+    var dependencies = (isPackageJson ? _.omit(options.peerDependencies, "xtuple") : options.dependencies) || [];
     _.each(dependencies, function (dependency) {
       var dependencySql = "select xt.register_extension_dependency('%@', '%@');\n"
           .f(options.name, dependency),
@@ -39,7 +51,7 @@ regexp:true, undef:true, strict:true, trailing:true, white:true */
   };
 
   var composeExtensionSql = function (scriptSql, packageFile, options, callback) {
-    // each String of the scriptContents is the concatenated SQL for the script.
+    // each string of the scriptContents is the concatenated SQL for the script.
     // join these all together into a single string for the whole extension.
     var extensionSql = _.reduce(scriptSql, function (memo, script) {
       return memo + script;
@@ -49,16 +61,11 @@ regexp:true, undef:true, strict:true, trailing:true, white:true */
       extensionSql = getRegistrationSql(packageFile, options.extensionLocation) +
         extensionSql;
     }
-    if (options.runJsInit) {
-      // unless it it hasn't yet been defined (ie. lib/orm),
-      // running xt.js_init() is probably a good idea.
-      extensionSql = "select xt.js_init();" + extensionSql;
-    }
 
     if (options.wipeViews) {
       // If we want to pre-emptively wipe out the views, the best place to do it
       // is at the start of the core application code
-      fs.readFile(path.join(__dirname, "../../../enyo-client/database/source/wipe_views.sql"),
+      fs.readFile(path.join(__dirname, "../../../database/source/wipe_views.sql"),
           function (err, wipeSql) {
         if (err) {
           callback(err);
@@ -71,7 +78,7 @@ regexp:true, undef:true, strict:true, trailing:true, white:true */
     } else if (options.wipeOrms) {
       // If we want to pre-emptively wipe out the views, the best place to do it
       // is at the start of the core application code
-      fs.readFile(path.join(__dirname, "../../../enyo-client/database/source/delete_system_orms.sql"),
+      fs.readFile(path.join(__dirname, "../../../database/source/delete_system_orms.sql"),
           function (err, wipeSql) {
         if (err) {
           callback(err);
@@ -94,7 +101,7 @@ regexp:true, undef:true, strict:true, trailing:true, white:true */
       packageJson = require(path.resolve(options.extensionPath, "package.json"));
     }
     //
-    // Step 2:
+    // Step 1:
     // Read the manifest files.
     //
 
@@ -113,6 +120,7 @@ regexp:true, undef:true, strict:true, trailing:true, white:true */
         databaseScripts,
         extraManifestPath,
         defaultSchema,
+        parsingExpressionGrammars,
         extraManifest,
         extraManifestScripts,
         alterPaths = dbSourceRoot.indexOf("foundation-database") < 0;
@@ -121,15 +129,65 @@ regexp:true, undef:true, strict:true, trailing:true, white:true */
         manifest = JSON.parse(manifestString);
         databaseScripts = manifest.databaseScripts;
         defaultSchema = manifest.defaultSchema;
+        parsingExpressionGrammars = manifest.parsingExpressionGrammars ? manifest.parsingExpressionGrammars : [];
 
       } catch (error) {
         // error condition: manifest file is not properly formatted
-        manifestCallback("Manifest is not valid JSON" + manifestFilename);
+        manifestCallback("Manifest is not valid JSON" + manifestFilename + " ERROR: " + error);
         return;
       }
 
+      var savePEGparser = function (pegInfo, callback) {
+        // Get the *.peg file.
+        fs.readFile(path.join(dbSourceRoot, pegInfo.pegPath), "utf8", function (err, data) {
+            // Generate the parser.
+            var jsFileString = "",
+                parser = PEG.buildParser(data, {output: 'source'});
+
+            // Create the parser text install_js file text.
+            jsFileString += "select xt.install_js('" + pegInfo.nameSpace + "', '" + pegInfo.type + "', '" + pegInfo.context + "',  $$\n" +
+                            "\n" +
+                            "/**\n" +
+                            " * WARNING!!! IMPORTANT!!! README!!!\n" +
+                            " * \n" +
+                            " * The file was GENERATED! None of this file was written by a human.\n" +
+                            " * DO NOT EDIT this file!\n" +
+                            " * This file was created by running build_app.js in the process_manifext.js file.\n" +
+                            " * If you find a bug or need to extend it with a new feature, you MUST follow this process:\n" +
+                            " * \n" +
+                            " * 1. Modify the PEG Grammer definition at: " + pegInfo.pegPath + "\n" +
+                            " * 2. Use the PEG.js online tool to test the new grammer:\n" +
+                            " *    - http://pegjs.org/online\n" +
+                            " * 3. Run build_app.js with your PEG Grammer change and git commit the modified files.\n" +
+                            " */\n\n" +
+                            "(function () {\n" +
+                            pegInfo.nameSpace + "." + pegInfo.type + " = {};\n" +
+                            pegInfo.nameSpace + "." + pegInfo.type + ".parser = ";
+            jsFileString += parser + ";\n\n";
+            jsFileString += "})();\n" +
+                            "\n" +
+                            "$$ );\n";
+
+            // Save the parser install_js file to the file system.
+            fs.writeFile(path.join(dbSourceRoot, pegInfo.javascriptPath), jsFileString, "utf8", function (err) {
+              if (err) {
+                throw err;
+              }
+              console.log('Saved PEGjs parser Javascript to ', pegInfo.javascriptPath);
+              callback();
+            });
+          }
+        );
+      };
+
+      async.eachSeries(parsingExpressionGrammars, savePEGparser, function (err) {
+        if (err) {
+          manifestCallback("Cannot save PEGjs parser Javascript. ERROR = " + err);
+        }
+      });
+
       //
-      // Step 2b:
+      // Step 2:
       //
 
       // supported use cases:
@@ -153,16 +211,34 @@ regexp:true, undef:true, strict:true, trailing:true, white:true */
       // not sure if this is necessary, but it would look like
       // -e ../private-extensions/source/inventory/foundation-database
 
+      //
+      // Foundation means plv8-free. Only relevant for the core, and for the three commercial
+      // extensions that we've ported into this process. Once everyone is on the xtuple server
+      // we can merge all the `foundation-database` code into `database` and remove the
+      // concept of foundation-ness
+      //
       if (options.useFoundationScripts) {
         extraManifest = JSON.parse(fs.readFileSync(path.join(dbSourceRoot, "../../foundation-database/manifest.js")));
         defaultSchema = defaultSchema || extraManifest.defaultSchema;
         extraManifestScripts = extraManifest.databaseScripts;
-        extraManifestScripts = _.map(extraManifestScripts, function (path) {
-          return "../../foundation-database/" + path;
+        extraManifestScripts = _.map(extraManifestScripts, function (script) {
+            var scriptPath;
+
+            if (typeof script === 'object' && script.path) {
+              scriptPath = script.path;
+            } else {
+              scriptPath = script;
+            }
+          return "../../foundation-database/" + scriptPath;
         });
         databaseScripts.unshift(extraManifestScripts);
         databaseScripts = _.flatten(databaseScripts);
       }
+      //
+      // Frozen means non-idempotent. Only exists for foundation code, and is mostly for table definitions.
+      // As soon as we rewrite all this code to be idempotent we can remove the concept of frozen-ness
+      // Note that will also remove the distinction between installer installs and installer updates.
+      //
       if (options.useFrozenScripts) {
         // Frozen files are not idempotent and should only be run upon first registration
         extraManifestPath = alterPaths ?
@@ -173,8 +249,15 @@ regexp:true, undef:true, strict:true, trailing:true, white:true */
         defaultSchema = defaultSchema || extraManifest.defaultSchema;
         extraManifestScripts = extraManifest.databaseScripts;
         if (alterPaths) {
-          extraManifestScripts = _.map(extraManifestScripts, function (path) {
-            return "../../foundation-database/" + path;
+          extraManifestScripts = _.map(extraManifestScripts, function (script) {
+            var scriptPath;
+
+            if (typeof script === 'object' && script.path) {
+              scriptPath = script.path;
+            } else {
+              scriptPath = script;
+            }
+            return "../../foundation-database/" + scriptPath;
           });
         }
         databaseScripts.unshift(extraManifestScripts);
@@ -185,8 +268,18 @@ regexp:true, undef:true, strict:true, trailing:true, white:true */
       // Step 3:
       // Concatenate together all the files referenced in the manifest.
       //
-      var getScriptSql = function (filename, scriptCallback) {
-        var fullFilename = path.join(dbSourceRoot, filename);
+      var getScriptSql = function (script, scriptCallback) {
+        var fullFilename,
+            filename;
+
+        if (typeof script === 'object' && script.path) {
+          filename = script.path;
+        } else {
+          filename = script;
+        }
+
+        fullFilename = path.join(dbSourceRoot, filename);
+
         if (!fs.existsSync(fullFilename)) {
           // error condition: script referenced in manifest.js isn't there
           scriptCallback(path.join(dbSourceRoot, filename) + " does not exist");
@@ -203,11 +296,12 @@ regexp:true, undef:true, strict:true, trailing:true, white:true */
             extname = path.extname(fullFilename).substring(1);
 
           // convert special files: metasql, uiforms, reports, uijs
-          scriptContents = conversionMap[extname](scriptContents, fullFilename, defaultSchema);
+          scriptContents = conversionMap[extname](scriptContents, fullFilename, defaultSchema, script);
 
           //
           // Incorrectly-ended sql files (i.e. no semicolon) make for unhelpful error messages
-          // when we concatenate 100's of them together. Guard against these.
+          // when we concatenate 100's of them together. Guard against these, even if it throws
+          // some false postitives when for example a file ends in a comment.
           //
           scriptContents = scriptContents.trim();
           if (scriptContents.charAt(scriptContents.length - 1) !== ';') {

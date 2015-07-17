@@ -507,7 +507,7 @@ ORDER BY gltrans_created &lt;? if not exists("beginningBalance") ?> DESC &lt;? e
   <label>
    <rect>
     <x>960</x>
-    <y>25</y>
+    <y>10</y>
     <width>40</width>
     <height>15</height>
    </rect>
@@ -602,6 +602,22 @@ ORDER BY gltrans_created &lt;? if not exists("beginningBalance") ?> DESC &lt;? e
    <left/>
    <vcenter/>
    <string>Reference</string>
+  </label>
+  <label>
+   <rect>
+    <x>960</x>
+    <y>25</y>
+    <width>40</width>
+    <height>15</height>
+   </rect>
+   <font>
+    <face>Arial</face>
+    <size>8</size>
+    <weight>normal</weight>
+   </font>
+   <left/>
+   <vcenter/>
+   <string>Deleted</string>
   </label>
  </pghead>
  <section>

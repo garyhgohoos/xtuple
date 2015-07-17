@@ -1,3 +1,4 @@
+
 /*jshint bitwise:true, indent:2, curly:true, eqeqeq:true, immed:true,
 latedef:true, newcap:true, noarg:true, regexp:true, undef:true,
 trailing:true, white:true, strict: false*/
@@ -54,7 +55,7 @@ trailing:true, white:true, strict: false*/
             {kind: "XV.ListAttr", attr: "name"}
           ]},
           {kind: "XV.ListColumn", classes: "right-column", components: [
-            {kind: "XV.ListAttr", attr: "primaryContact.phone", },
+            {kind: "XV.ListAttr", attr: "primaryContact.phone"},
             {kind: "XV.ListAttr", attr: "primaryContact.primaryEmail"}
           ]},
           {kind: "XV.ListColumn", fit: true, components: [
@@ -80,7 +81,8 @@ trailing:true, white:true, strict: false*/
     collection: "XM.ActivityListItemCollection",
     parameterWidget: "XV.ActivityListParameters",
     published: {
-      activityActions: []
+      activityActions: [],
+      alwaysRefetch: true
     },
     actions: [
       {name: "reassignUser",
@@ -101,15 +103,20 @@ trailing:true, white:true, strict: false*/
     components: [
       {kind: "XV.ListItem", components: [
         {kind: "FittableColumns", components: [
+          {kind: "XV.ListColumn", classes: "button-column", components: [
+            {kind: "XV.ListAttr", components: [
+              {tag: "i", classes: "icon-edit-sign hyperlink icon-large", isKey: true}
+            ]}
+          ]},
           {kind: "XV.ListColumn", classes: "name-column", components: [
-            {kind: "XV.ListAttr", formatter: "formatName", isKey: true},
+            {kind: "XV.ListAttr", formatter: "formatName"},
             {kind: "XV.ListAttr", formatter: "formatDescription1"},
           ]},
           {kind: "XV.ListColumn", classes: "right-column", components: [
             {kind: "XV.ListAttr", attr: "dueDate", placeholder: "_noDueDate".loc()},
             {kind: "XV.ListAttr", attr: "getActivityStatusString"}
           ]},
-          {kind: "XV.ListColumn", classes: "second",
+          {kind: "XV.ListColumn", classes: "third",
             components: [
             {kind: "XV.ListAttr", attr: "activityType",
               formatter: "formatType",
@@ -183,12 +190,13 @@ trailing:true, white:true, strict: false*/
         message: "_reassignSelectedActivities".loc(),
         yesLabel: "_reassign".loc(),
         noLabel: "_cancel".loc(),
-        component: {kind: "XV.UserPicker", name: "assignTo", label: "_assignTo".loc()},
+        component: {kind: "XV.UserAccountWidget", name: "assignTo", label: "_assignTo".loc(),
+          menuDisabled: true},
         options: {models: this.selectedModels()}
       });
     },
     getWorkspace: function () {
-      if (!this._lastTapIndex) {
+      if (_.isUndefined(this._lastTapIndex)) {
         // don't respond to events waterfalled from other models
         return;
       }
@@ -1242,7 +1250,7 @@ trailing:true, white:true, strict: false*/
         method: "doVoid" },
       {name: "post", privilege: "PostMiscInvoices", prerequisite: "canPost",
         method: "doPost" },
-      {name: "print", privilege: "PrintInvoices", method: "doPrint", isViewMethod: true },
+      {name: "print", privilege: "PrintInvoices", method: "doPrint", isViewMethod: true},
       {name: "email", privilege: "PrintInvoices", method: "doEmail", isViewMethod: true},
       {name: "download", privilege: "PrintInvoices", method: "doDownload",
         isViewMethod: true}
@@ -1578,6 +1586,35 @@ trailing:true, white:true, strict: false*/
   XV.registerModelList("XM.PlannerCode", "XV.PlannerCodeList");
 
   // ..........................................................
+  // PRINTER
+  //
+
+  enyo.kind({
+    name: "XV.PrinterList",
+    kind: "XV.List",
+    label: "_printers".loc(),
+    collection: "XM.PrinterCollection",
+    parameterWidget: null,
+    query: {orderBy: [
+      {attribute: 'name'}
+    ]},
+    components: [
+      {kind: "XV.ListItem", components: [
+        {kind: "FittableColumns", components: [
+          {kind: "XV.ListColumn", components: [
+            {kind: "XV.ListAttr", attr: "name", isKey: true}
+          ]},
+          {kind: "XV.ListColumn", components: [
+            {kind: "XV.ListAttr", attr: "description"}
+          ]}
+        ]}
+      ]}
+    ]
+  });
+
+  XV.registerModelList("XM.Printer", "XV.PrinterList");
+
+  // ..........................................................
   // PRODUCT CATEGORY
   //
 
@@ -1796,7 +1833,11 @@ trailing:true, white:true, strict: false*/
     collection: "XM.SalesOrderListItemCollection",
     parameterWidget: "XV.SalesOrderListParameters",
     actions: [
-      {name: "print", privilege: "ViewSalesOrders", method: "doPrint", isViewMethod: true},
+      {name: "print", label: "_printPickList".loc(), privilege: "ViewSalesOrders",
+        method: "doPrint", isViewMethod: true, custFormType: XM.Form.PICK_LIST},
+      {name: "printForm", label: "_printSalesOrderForm".loc(), privilege: "ViewSalesOrders",
+        method: "doPrintForm", key: "SO", formWorkspaceName: "XV.PrintSalesOrderFormWorkspace",
+        isViewMethod: true, notify: false},
       {name: "email", privilege: "ViewSalesOrders", method: "doEmail", isViewMethod: true}
     ],
     query: {orderBy: [
@@ -1815,12 +1856,15 @@ trailing:true, white:true, strict: false*/
             ]},
             {kind: "XV.ListColumn", classes: "right-column", components: [
               {kind: "XV.ListAttr", attr: "scheduleDate",
-                placeholder: "_noSchedule".loc()},
+                placeholder: "_noSched.".loc()},
               {kind: "XV.ListAttr", attr: "total", formatter: "formatTotal"}
             ]},
-            {kind: "XV.ListColumn", fit: true, components: [
+            {kind: "XV.ListColumn", classes: "descr", components: [
               {kind: "XV.ListAttr", formatter: "formatName"},
               {kind: "XV.ListAttr", formatter: "formatShiptoOrBillto"}
+            ]},
+            {kind: "XV.ListColumn", components: [
+              {kind: "XV.ListAttr", attr: "formatHoldType", style: "color: red"}
             ]}
           ]}
         ]}
@@ -1866,6 +1910,7 @@ trailing:true, white:true, strict: false*/
     }
   });
 
+  XV.registerModelList("XM.SalesOrderListItem", "XV.SalesOrderList");
   XV.registerModelList("XM.SalesOrderRelation", "XV.SalesOrderList");
 
   // ..........................................................

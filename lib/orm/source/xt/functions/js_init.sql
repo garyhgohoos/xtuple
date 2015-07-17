@@ -1,10 +1,11 @@
 drop function if exists xt.js_init();
+drop function if exists xt.js_init(boolean);
 
-create or replace function xt.js_init(debug boolean DEFAULT false) returns void as $$
+create or replace function xt.js_init(debug boolean DEFAULT false, initialize boolean DEFAULT false) returns void as $wrapper$
 
 return (function () {
 
-  if (plv8.__initialized && debug !== true) {
+  if (plv8.XT && !initialize && !debug) {
     return;
   }
 
@@ -308,6 +309,37 @@ return (function () {
     return ret;
   }
 
+  /*
+    Mappings of document association sourceTypes to business objects.
+    Extensible by extensions.
+    https://github.com/xtuple/xtuple/pull/1964
+
+    The following keys are already used by the core application:
+
+    "C" = Customer
+    "CRMA" = CRM Account
+    "FILE" = File
+    "I" = Item
+    "INCDT" = Incident
+    "INV" = Invoice
+    "J" = Project
+    "Qquhead_id" = Quote. Yes really.
+    "S" = Sales Order
+    "T" = Contact
+    "URL" = Url
+
+    If you're adding your own, choose a generous namespace and object name.
+    The string is stored in postgres as a text field, so you've got plenty of characters.
+
+  */
+
+  XT.documentAssociations = {
+    FILE: "FileRelation",
+    I: "ItemRelation",
+    URL: "Url"
+  };
+
+
   /**
     Returns today's date at midnight.
     returns {Date}
@@ -334,7 +366,7 @@ return (function () {
       /* This error was handled and a message sent to the client. Those massages are*/
       /* generic HTTP codes. Send the stack trace with detailed info on what happened. */
       XT.debug(message);
-      XT.message(error.code, error.message)
+      XT.message(error.code, error.message.substring(0, 900));
       throw "handledError";
     } else {
       /* Some times the stack trace can eat up the full 1000 char message. */
@@ -821,7 +853,7 @@ return (function () {
   };
 
   XT.message = function (code, message) {
-    var msg = {code: code, message: message};
+    var msg = {code: code, message: message.substring(0, 90)};
 
     plv8.elog(INFO, JSON.stringify(msg));
     return 'Handled by XT.message';
@@ -904,4 +936,4 @@ return (function () {
 
 }());
 
-$$ language plv8;
+$wrapper$ language plv8;

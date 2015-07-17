@@ -1,5 +1,5 @@
 CREATE OR REPLACE FUNCTION distributeItemlocSeries(pItemlocSeries INTEGER) RETURNS INTEGER AS $$
--- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple. 
+-- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple.
 -- See www.xtuple.com/CPAL for the full text of the software license.
 DECLARE
   _distCounter     INTEGER;
@@ -7,7 +7,7 @@ DECLARE
   _itemlocid       INTEGER;
   _invhistid       INTEGER;
   _check           BOOLEAN;
-  _debug           BOOLEAN := true;
+  _debug           BOOLEAN := false;
 BEGIN
 
   IF (_debug) THEN
@@ -68,7 +68,7 @@ BEGIN
         invdetail_qty, invdetail_qty_before, invdetail_qty_after, invdetail_expiration,
         invdetail_warrpurc )
       SELECT _itemlocdist.invhistid, itemloc_location_id, itemloc_ls_id,
-             (itemloc_qty * -1), itemloc_qty, 0, itemloc_expiration, 
+             (itemloc_qty * -1), itemloc_qty, 0, itemloc_expiration,
              _itemlocdist.warranty
       FROM itemloc
       WHERE ( (itemloc_qty <> 0)

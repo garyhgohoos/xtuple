@@ -3,7 +3,7 @@
 -- Notes:
 -----------BEGIN SUMMARY----------
 -- Notes:
--- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple.
+-- Copyright (c) 1999-2015 by OpenMFG LLC, d/b/a xTuple.
 -- See www.xtuple.com/CPAL for the full text of the software license.
 
 <? if exists("summary") ?>
@@ -55,7 +55,7 @@ SELECT
     WHEN (cohist_doctype != 'C') THEN
       cohist_ordernumber 
   END AS ordernumber, cohist_invcdate AS docdate,
-  cohist_billtoname AS name, 
+  cust_name AS name,
   cohist_qtyshipped AS qty, 
   cohist_unitprice AS unitprice, (cohist_qtyshipped * cohist_unitprice) AS amount,
   CASE
@@ -86,6 +86,7 @@ SELECT
    0 AS taxbase_xttotalrole
 FROM cohisttax
  JOIN cohist ON (cohist_id=taxhist_parent_id)
+ JOIN custinfo ON (cohist_cust_id=cust_id)
  JOIN taxtype ON (taxtype_id=taxhist_taxtype_id)
  JOIN tax ON (tax_id=taxhist_tax_id)
  JOIN curr_symbol ON (curr_id=taxhist_curr_id)
@@ -154,11 +155,12 @@ SELECT
   apopen_ponumber AS ordernumber, apopen_docdate AS docdate,
   vend_name AS name, 
   1 AS qty, 
-  apopen_amount AS unitprice, apopen_amount AS amount,
+  apopen_amount AS unitprice, 
+  apopen_amount - ABS(COALESCE(taxpay_tax, taxhist_tax)) AS amount,
   0 AS salesbase,
   0 AS freightbase,
   0 AS freighttax,
-  apopen_amount / apopen_curr_rate AS purchasebase,
+  (apopen_amount / apopen_curr_rate) - ABS(COALESCE(taxpay_tax, taxhist_tax) / taxhist_curr_rate) AS purchasebase,
   COALESCE(taxpay_tax, taxhist_tax) AS taxlocal,
   COALESCE(taxpay_tax, taxhist_tax) / taxhist_curr_rate AS taxbase,
   0 AS salestaxbase,
@@ -222,11 +224,12 @@ SELECT
   pohead_number AS ordernumber, vohead_docdate AS docdate,
   vend_name AS name, 
   1 AS qty, 
-  0 AS unitprice, 0 AS amount,
+  0 AS unitprice, 
+  vohead_amount - ABS(COALESCE(taxpay_tax, taxhist_tax)) AS amount,
   0 AS salesbase,
   0 AS freightbase,
   0 AS freighttax,
-  0 AS purchasebase,
+  (vohead_amount / taxhist_curr_rate) - ABS(COALESCE(taxpay_tax, taxhist_tax) / taxhist_curr_rate) AS purchasebase,
   COALESCE(taxpay_tax, taxhist_tax) AS taxlocal,
   COALESCE(taxpay_tax, taxhist_tax) / taxhist_curr_rate AS taxbase,
   0 AS salestaxbase,

@@ -18,6 +18,8 @@ regexp:true, undef:true, strict:true, trailing:true, white:true */
       return path.join(__dirname, "../../../../private-extensions/source", name);
     } else if (location === 'npm') {
       return path.join(__dirname, "../../../node_modules", name);
+    } else if (location !== 'not-applicable') {
+      return path.join(__dirname, "../../../..", location);
     }
   };
 
@@ -36,13 +38,17 @@ regexp:true, undef:true, strict:true, trailing:true, white:true */
         return pathFromExtension(row.ext_name, row.ext_location);
       });
 
-      paths.unshift(path.join(__dirname, "../../../enyo-client")); // core path
+      paths.unshift(path.join(__dirname, "../../..")); // core path
       paths.unshift(path.join(__dirname, "../../../lib/orm")); // lib path
       paths.unshift(path.join(__dirname, "../../../foundation-database")); // foundation path
       done(null, _.compact(paths));
     });
   };
 
+  //
+  // An unmobilized database will have no xt.ext table, so we have to infer the
+  // extensions based on the packages that are installed.
+  //
   var inspectUnmobilizedDatabase = function (creds, done) {
     var extSql = "select * from public.pkghead where pkghead_name in ('xtmfg', 'xwd');",
       editionMap = {

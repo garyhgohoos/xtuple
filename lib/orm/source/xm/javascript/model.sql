@@ -48,6 +48,63 @@ select xt.install_js('XM','Model','xtuple', $$
   },
 
   /**
+    Pass in a uuid and get the public table's pk
+
+    @param {String} uuid
+    @returns Number
+  */
+  XM.Model.fetchPrimaryKeyId = function (options) {
+    var schema = "public",
+      tableName,
+      sql,
+      sql1 = "SELECT tblname AS tblname " +
+        "FROM xt.obj_uuid WHERE obj_uuid = $1;",
+      sql2 = "SELECT {table}_id AS id " +
+        "FROM {table} WHERE obj_uuid = $1;",
+      id,
+      lineItemId;
+
+    if (options.docUuid) {
+      tableName = plv8.execute(sql1, [options.docUuid])[0];
+      if (!tableName) {
+        return plv8.elog(ERROR, "UUID " + options.docUuid + " not found in xt.obj_uuid table");
+      }
+      /* This could possibly be replaced with a query that doesn't depend on the xt.obj_uuid table */
+      id = plv8.execute(sql2.replace(/{table}/g, tableName.tblname), [options.docUuid])[0].id;
+    }
+
+    if (options.lineItemUuid) {
+      tableName = plv8.execute(sql1, [options.lineItemUuid])[0];
+      if (!tableName) {
+        return plv8.elog(ERROR, "UUID " + options.lineItemUuid + " not found in xt.obj_uuid table");
+      }
+      lineItemId = plv8.execute(sql2.replace(/{table}/g, tableName.tblname), [options.lineItemUuid])[0].id;
+    }
+
+    if (options.docNumber && options.table && options.column) {
+      /* Handle xt.<tableName> */
+      if (options.table.indexOf('.') !== -1) {
+        schema = options.table.split(".")[0];
+        options.table = options.table.split(".")[1];
+      }
+      sql = "SELECT {table}_id AS id FROM {schema}.{table} WHERE {column} = $1"
+        .replace(/{schema}/g, schema)
+        .replace(/{table}/g, options.table)
+        .replace(/{column}/, options.column);
+
+      id = plv8.execute(sql, [options.docNumber])[0].id;
+    }
+
+    if (!id) {
+      throw new handleError("id not found", 400);
+    }
+    if (lineItemId && id) {
+      return {lineItemId: lineItemId, id: id}
+    }
+    return id;
+  },
+
+  /**
     Obtain a pessemistic record lock. Defaults to timeout of 30 seconds.
 
     @param {String} Namespace

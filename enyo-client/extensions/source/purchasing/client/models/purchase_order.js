@@ -224,6 +224,30 @@ white:true*/
         this.set("total", total);
       },
 
+      getPrintParameters: function (callback) {
+        var dispOptions = {},
+          dispParams = {
+            docNumber: this.id,
+            table: "pohead",
+            column: "pohead_number"
+          };
+
+        dispOptions.success = function (resp) {
+          var id = resp;
+
+          callback({
+            id: id,
+            reportName: "PurchaseOrder",
+            printParameters: [
+              {name: "pohead_id", type: "integer", value: id},
+              {name: "title", type: "string", value: ""}
+            ]
+          });
+        };
+
+        this.dispatch('XM.Model', 'fetchPrimaryKeyId', dispParams, dispOptions);
+      },
+
       handleLineItems: function () {
         var vendor = this.get("vendor"),
           currency = this.get("currency"),
@@ -287,11 +311,13 @@ white:true*/
       },
 
       purchaseTypeChanged: function () {
-        this.inheritWorkflowSource(
-          this.get("purchaseType"),
-          "XM.PurchaseOrderCharacteristic",
-          "XM.PurchaseOrderWorkflow"
-        );
+        if (!XT.session.settings.get("TriggerWorkflow")) {
+          this.inheritWorkflowSource(
+            this.get("purchaseType"),
+            "XM.PurchaseOrderCharacteristic",
+            "XM.PurchaseOrderWorkflow"
+          );
+        }
       },
 
       /**
@@ -424,6 +450,7 @@ white:true*/
           attrs.taxZone = vendor.get("taxZone");
           attrs.shipVia = vendor.get("shipVia");
           attrs.vendorAddress = vendorAddress;
+          attrs.purchaseType = vendor.getValue("purchaseType.code");
         }
 
         this.set(attrs);
@@ -1221,7 +1248,9 @@ white:true*/
 
       doUnrelease: function (callback) {
         return _doDispatch.call(this, "unrelease", callback);
-      }
+      },
+
+      getPrintParameters: XM.PurchaseOrder.prototype.getPrintParameters
 
     });
 

@@ -1,64 +1,51 @@
-CREATE OR REPLACE FUNCTION postInvoice(INTEGER) RETURNS INTEGER AS $$
+CREATE OR REPLACE FUNCTION postInvoice(pInvcheadid INTEGER) RETURNS INTEGER AS $$
 -- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple. 
 -- See www.xtuple.com/CPAL for the full text of the software license.
-DECLARE
-  pInvcheadid ALIAS FOR $1;
-  _return INTEGER;
-
 BEGIN
-
-  SELECT postInvoice(pInvcheadid, fetchJournalNumber('AR-IN')) INTO _return;
-
-  RETURN _return;
-
+  RETURN postInvoice(pInvcheadid, fetchJournalNumber('AR-IN'));
 END;
-$$ LANGUAGE 'plpgsql';
+$$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE FUNCTION postInvoice(INTEGER, INTEGER) RETURNS INTEGER AS $$
+CREATE OR REPLACE FUNCTION postInvoice(pInvcheadid INTEGER,
+                                       pJournalNumber INTEGER) RETURNS INTEGER AS $$
 -- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple. 
 -- See www.xtuple.com/CPAL for the full text of the software license.
 DECLARE
-  pInvcheadid ALIAS FOR $1;
-  pJournalNumber ALIAS FOR $2;
   _itemlocSeries INTEGER;
-  _return INTEGER;
 
 BEGIN
 
   SELECT NEXTVAL('itemloc_series_seq') INTO _itemlocSeries;
-  SELECT postInvoice(pInvcheadid, pJournalNumber, _itemlocseries) INTO _return;
-
-  RETURN _return;
+  RETURN postInvoice(pInvcheadid, pJournalNumber, _itemlocseries);
 
 END;
-$$ LANGUAGE 'plpgsql';
+$$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE FUNCTION postInvoice(INTEGER, INTEGER, INTEGER) RETURNS INTEGER AS $$
+CREATE OR REPLACE FUNCTION postInvoice(pInvcheadid INTEGER,
+                                       pJournalNumber INTEGER,
+                                       pItemlocSeries INTEGER) RETURNS INTEGER AS $$
 -- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple. 
 -- See www.xtuple.com/CPAL for the full text of the software license.
 DECLARE
-  pInvcheadid ALIAS FOR $1;
-  pJournalNumber ALIAS FOR $2;
-  pItemlocSeries ALIAS FOR $3;
-  _aropenid INTEGER;
-  _cohistid INTEGER;
-  _itemlocSeries INTEGER := 0;
-  _invhistid INTEGER := 0;
-  _amount NUMERIC;
-  _roundedBase NUMERIC;
-  _sequence INTEGER;
-  _r RECORD;
-  _p RECORD;
-  _test INTEGER;
+  _aropenid             INTEGER;
+  _cohistid             INTEGER;
+  _itemlocSeries        INTEGER := 0;
+  _invhistid            INTEGER := 0;
+  _amount               NUMERIC;
+  _roundedBase          NUMERIC;
+  _sequence             INTEGER;
+  _r                    RECORD;
+  _p                    RECORD;
+  _test                 INTEGER;
   _totalAmount          NUMERIC := 0;
   _totalRoundedBase     NUMERIC := 0;
   _totalAmountBase      NUMERIC := 0;
   _appliedAmount        NUMERIC := 0;
   _commissionDue        NUMERIC := 0;
-  _tmpAccntId INTEGER;
-  _tmpCurrId  INTEGER;
+  _tmpAccntId           INTEGER;
+  _tmpCurrId            INTEGER;
   _firstExchDate        DATE;
-  _glDate		DATE;
+  _glDate               DATE;
   _exchGain             NUMERIC := 0;
 
 BEGIN
@@ -627,32 +614,29 @@ BEGIN
   SET invchead_posted=TRUE, invchead_gldistdate=_glDate
   WHERE (invchead_id=pInvcheadid);
  
+--  Check for allocated CMs and Payments
+--  All amounts in invoice currency
   IF (_totalAmount > 0) THEN
-    -- get a list of allocated CMs
-    FOR _r IN SELECT aropen_id,
-		     CASE WHEN((aropen_amount - aropen_paid) >=
-                                aropenalloc_amount / (1 / aropen_curr_rate / 
-                                currRate(aropenalloc_curr_id,_firstExchDate))) THEN
-			      aropenalloc_amount / (1 / aropen_curr_rate / 
-                                currRate(aropenalloc_curr_id,_firstExchDate))
-			  ELSE (aropen_amount - aropen_paid)
-		     END AS balance,
-		     aropen_curr_id, aropen_curr_rate,
-		     aropenalloc_doctype, aropenalloc_doc_id
-                FROM aropenalloc, aropen
-               WHERE ( (aropenalloc_aropen_id=aropen_id)
-                 AND   ((aropenalloc_doctype='S' AND aropenalloc_doc_id=(SELECT cohead_id
-                                                                           FROM cohead
-                                                                          WHERE cohead_number=_p.invchead_ordernumber)) OR
-                        (aropenalloc_doctype='I' AND aropenalloc_doc_id=_p.invchead_id)) ) LOOP
+    FOR _r IN
+      SELECT aropen_id,
+             CASE WHEN (currToCurr(aropen_curr_id, _p.invchead_curr_id, (aropen_amount - aropen_paid), _firstExchDate) >=
+                        currToCurr(aropenalloc_curr_id, _p.invchead_curr_id, aropenalloc_amount, _firstExchDate)) THEN
+                    currToCurr(aropenalloc_curr_id, _p.invchead_curr_id, aropenalloc_amount, _firstExchDate)
+                  ELSE
+                    currToCurr(aropen_curr_id, _p.invchead_curr_id, (aropen_amount - aropen_paid), _firstExchDate)
+             END AS balance,
+             aropenalloc_doctype, aropenalloc_doc_id
+      FROM aropenalloc JOIN aropen ON (aropen_id=aropenalloc_aropen_id)
+      WHERE ((aropenalloc_doctype='S' AND aropenalloc_doc_id=(SELECT cohead_id
+                                                              FROM cohead
+                                                              WHERE cohead_number=_p.invchead_ordernumber))
+             OR
+             (aropenalloc_doctype='I' AND aropenalloc_doc_id=_p.invchead_id))
+    LOOP
 
       _appliedAmount := _r.balance;
-      IF (_totalAmount < _appliedAmount / (1 / currRate(_r.aropen_curr_id,_firstExchDate) /
-                        _r.aropen_curr_rate)) THEN
+      IF (_totalAmount < _appliedAmount) THEN
         _appliedAmount := _totalAmount;
-	_tmpCurrId := _p.invchead_curr_id;
-      ELSE
-	_tmpCurrId := _r.aropen_curr_id;
       END IF;
 
       -- ignore if no appliable balance
@@ -662,26 +646,31 @@ BEGIN
         -- c/m whichever is greater.
         INSERT INTO arcreditapply
               (arcreditapply_source_aropen_id, arcreditapply_target_aropen_id,
-	       arcreditapply_amount, arcreditapply_curr_id, arcreditapply_reftype, arcreditapply_ref_id)
-        VALUES(_r.aropen_id, _aropenid, _appliedAmount, _tmpCurrId, 'S',  _r.aropenalloc_doc_id);
+               arcreditapply_amount, arcreditapply_curr_id,
+               arcreditapply_reftype, arcreditapply_ref_id)
+        VALUES(_r.aropen_id, _aropenid,
+               _appliedAmount, _p.invchead_curr_id,
+               'S',  _r.aropenalloc_doc_id);
 
         -- call postARCreditMemoApplication(aropen_id of C/M)
         SELECT postARCreditMemoApplication(_r.aropen_id) into _test;
 
         -- if no error decrement the balance and contiue on
         IF (_test >= 0) THEN
-          _totalAmount := _totalAmount - currToCurr(_tmpCurrId, _p.invchead_curr_id,
-						    _appliedAmount, _firstExchDate);
+          _totalAmount := _totalAmount - _appliedAmount;
         END IF;
-
-        -- delete the allocation
-        DELETE FROM aropenalloc
-        WHERE (aropenalloc_doctype='I')
-          AND (aropenalloc_doc_id=_p.invchead_id);
 
       END IF;
     END LOOP;
   END IF;
+
+--  Delete any allocated CMs and Payments
+  DELETE FROM aropenalloc
+  WHERE ((aropenalloc_doctype='S' AND aropenalloc_doc_id=(SELECT cohead_id
+                                                          FROM cohead
+                                                          WHERE cohead_number=_p.invchead_ordernumber))
+         OR
+         (aropenalloc_doctype='I' AND aropenalloc_doc_id=_p.invchead_id));
 
   RETURN _itemlocSeries;
 

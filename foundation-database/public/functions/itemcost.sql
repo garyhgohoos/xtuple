@@ -13,6 +13,37 @@ CREATE OR REPLACE FUNCTION itemCost(pItemid INTEGER,
 --
 -- Overload for future costing enhancements
 --
+BEGIN
+  RETURN itemCost(pItemid,
+                  pCustid,
+                  pShiptoid,
+                  pQty,
+                  pQtyUOM,
+                  pPriceUOM,
+                  pCurrid,
+                  pEffective,
+                  pAsOf,
+                  pSiteid,
+                  FALSE);
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION itemCost(pItemid INTEGER,
+                                    pCustid INTEGER,
+                                    pShiptoid INTEGER,
+                                    pQty NUMERIC,
+                                    pQtyUOM INTEGER,
+                                    pPriceUOM INTEGER,
+                                    pCurrid INTEGER,
+                                    pEffective DATE,
+                                    pAsOf DATE,
+                                    pSiteid INTEGER,
+                                    pDropShip BOOLEAN) RETURNS NUMERIC STABLE AS $$
+-- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple.
+-- See www.xtuple.com/CPAL for the full text of the software license.
+--
+-- Overload for future costing enhancements
+--
 DECLARE
   _r RECORD;
   _cost NUMERIC := 0.0;
@@ -40,7 +71,7 @@ BEGIN
 
   RETURN _cost;
 END;
-$$ LANGUAGE 'plpgsql';
+$$ LANGUAGE plpgsql;
 
 CREATE OR REPLACE FUNCTION itemCost(pItemsiteid INTEGER) RETURNS NUMERIC STABLE AS $$
 -- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple.
@@ -49,7 +80,7 @@ DECLARE
   _cost NUMERIC;
 BEGIN
   SELECT CASE WHEN (itemsite_costmethod='A' AND itemsite_qtyonhand != 0.0) THEN (itemsite_value / itemsite_qtyonhand)
-              WHEN (itemsite_costmethod='A' AND itemsite_qtyonhand = 0.0) THEN 0.0
+              WHEN (itemsite_costmethod='A' AND itemsite_qtyonhand = 0.0) THEN stdCost(itemsite_item_id)
               WHEN (itemsite_costmethod='N') THEN 0.0
               ELSE stdCost(itemsite_item_id)
          END INTO _cost
@@ -57,4 +88,4 @@ BEGIN
    WHERE(itemsite_id=pItemsiteid);
   RETURN _cost;
 END;
-$$ LANGUAGE 'plpgsql';
+$$ LANGUAGE plpgsql;

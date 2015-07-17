@@ -32,11 +32,11 @@ BEGIN
         IF ((NEW.quhead_number IS NOT NULL) AND (_numGen='A')) THEN
           RAISE EXCEPTION 'You may not supply a new Quote Number xTuple will generate the number.';
         ELSE
-          IF ((NEW.quhead_number IS NULL) AND (_numGen='O')) THEN
-            SELECT fetchqunumber() INTO NEW.quhead_number;
+          IF ((NEW.quhead_number IS NULL) AND (_numGen='S')) THEN
+            SELECT fetchsonumber() INTO NEW.quhead_number;
           ELSE
             IF (NEW.quhead_number IS NULL) THEN
-              SELECT fetchsonumber() INTO NEW.quhead_number;
+              SELECT fetchqunumber() INTO NEW.quhead_number;
             END IF;
           END IF;
         END IF;
@@ -319,3 +319,26 @@ CREATE TRIGGER quheadtrigger
   ON quhead
   FOR EACH ROW
   EXECUTE PROCEDURE _quheadtrigger();
+
+CREATE OR REPLACE FUNCTION _quheadAfterDeleteTrigger() RETURNS TRIGGER AS $$
+-- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple.
+-- See www.xtuple.com/CPAL for the full text of the software license.
+DECLARE
+
+BEGIN
+
+  DELETE
+  FROM charass
+  WHERE charass_target_type = 'QU'
+    AND charass_target_id = OLD.quhead_id;
+
+  RETURN OLD;
+END;
+$$ LANGUAGE 'plpgsql';
+
+SELECT dropIfExists('TRIGGER', 'quheadAfterDeleteTrigger');
+CREATE TRIGGER quheadAfterDeleteTrigger
+  AFTER DELETE
+  ON quhead
+  FOR EACH ROW
+  EXECUTE PROCEDURE _quheadAfterDeleteTrigger();

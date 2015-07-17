@@ -91,6 +91,13 @@ BEGIN
     PERFORM postIntoTrialBalance(_r.gltrans_sequence);
   END LOOP;
 
+--  Forward Update Accounting Periods for all G/L Accounts
+  PERFORM forwardupdatetrialbalance(max(trialbal_id))
+    FROM accnt LEFT OUTER JOIN trialbal ON ( (trialbal_accnt_id=accnt_id)  )
+    GROUP BY accnt_id
+    HAVING max(trialbal_id) IS NOT NULL
+    ORDER BY accnt_id;
+
   RETURN _periodid;
 
 END;

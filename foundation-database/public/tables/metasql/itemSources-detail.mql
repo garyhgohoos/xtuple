@@ -5,7 +5,7 @@
 --        See www.xtuple.com/CPAL for the full text of the software license.
 <? if not exists("defaultOnly") ?>
   SELECT itemsrc_id, 
-       vend_name, 
+       vend_number, vend_name, 
        item_number, uom_name,
        (item_descrip1 || ' ' || item_descrip2) AS item_descrip,
        contrct_number,

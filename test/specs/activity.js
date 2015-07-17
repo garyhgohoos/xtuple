@@ -59,8 +59,10 @@ before:true, exports:true, it:true, describe:true, XG:true */
       popup = moduleContainer.$.notifyPopup;
       assert.isTrue(popup.showing);
       popup.$.customComponent.setValue(newAssignedTo);
-      assert.equal(popup.$.customComponent.$.pickerButton.content, newAssignedTo);
-      moduleContainer.notifyTap(null, { originator: {name: "notifyYes"}});
+      setTimeout(function () {
+        assert.equal(popup.$.customComponent.$.input.getValue(), newAssignedTo);
+        moduleContainer.notifyTap(null, { originator: {name: "notifyYes"}});
+      }, 2000);
 
       setTimeout(function () {
         assert.equal(actList.value.models[0].getValue("assignedTo.username"), newAssignedTo);

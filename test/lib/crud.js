@@ -2,7 +2,7 @@
 newcap:true, noarg:true, regexp:true, undef:true, strict:true, trailing:true,
 white:true*/
 /*global _:true, console:true, XM:true, XT:true, require:true, assert:true,
-setTimeout:true, clearTimeout:true, exports:true, it:true */
+setTimeout:true, clearTimeout:true, exports:true, it:true, Globalize: true */
 
 var _ = require("underscore"),
   zombieAuth = require("./zombie_auth"),
@@ -135,7 +135,9 @@ var _ = require("underscore"),
           // if it's an object we want to set on the model, flesh it out
           var fetchObject = {
               success: fetchSuccess,
-              error: asyncCallback,
+              error: function (model, err, options) {
+                asyncCallback(_.isFunction(err.message) ? err.message() : err);
+              },
               key: key
             },
             relatedModelName = _.find(data.model.relations, function (relation) {
@@ -162,6 +164,7 @@ var _ = require("underscore"),
 
     async.map(hashAsArray, setAttribute, function (err, results) {
       if (err) {
+        console.log(err);
         assert.fail(err);
       } else {
         data.model.off('invalid', invalid);

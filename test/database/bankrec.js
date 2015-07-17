@@ -64,20 +64,46 @@ var _    = require("underscore"),
       voitemtax,
       vomisctax,
       wasCashBasedTax,
+      newPeriodSql = "do $$" // the loop ensures creation in chron. order
+                + "declare"
+                + " _this date := date_trunc('year', current_timestamp)::date;"
+                + " _next date;"
+                + " _id   integer;"
+                + " _yp   integer;"
+                + " begin"
+                + "  select yearperiod_id into _yp from yearperiod"
+                + "   where _this between yearperiod_start and yearperiod_end;"
+                + "  if not found then"
+                + "    _yp := createAccountingYearPeriod(_this,"
+                + "     (_this + interval '1 year' - interval '1 day')::date);"
+                + "  end if;"
+                + "  raise notice 'year %: id %', _this, _yp;"
+                + "  for _i in 0..11 loop"
+                + "    _next := _this + interval '1 month';"
+                + "    _id := createAccountingPeriod(_this,"
+                + "                          (_next - interval '1 day')::date,"
+                + "                          _yp, NULL);"
+                + "    raise notice 'period %: id %', _this, _id;"
+                + "    _this := _next;"
+                + "  end loop;"
+                + "end"
+                + "$$;",
       bankRecItemSql = 'SELECT * FROM bankrecitem '             +
                        ' WHERE bankrecitem_bankrec_id=<? value("brid") ?>'   +
                        '   AND bankrecitem_source=<? value("src") ?>'        +
                        '   AND bankrecitem_source_id <? literal("srcid") ?>;',
       toggleCheckSql = "SELECT toggleBankRecCleared(<? value('bankrecid') ?>,'GL'," +
-                       "  gltrans_id, checkhead_curr_rate, checkhead_amount)"  +
+                       "  gltrans_id, checkhead_curr_rate, gltrans_amount)"    +
                        "  AS result"                                           +
                        " FROM checkhead JOIN gltrans ON (gltrans_doctype='CK'" +
                        "                    AND gltrans_misc_id=checkhead_id)" +
                        " WHERE checkhead_id=<? value('checkid') ?>"            +
                        "   AND gltrans_amount > 0;",
       postCheckSql  = "SELECT postCheck(<? value('id') ?>, NULL) AS result;",
-      checkCheckSql = "SELECT *,"                                              +
-                     "       bankrecitem_amount/bankrecitem_curr_rate AS base" +
+      checkCheckSql = "SELECT gltrans_rec, gltrans_amount, bankrec_posted,"    +
+                     "       bankrecitem_amount*bankrecitem_curr_rate AS mul," +
+                     "       bankrecitem_amount/bankrecitem_curr_rate AS div," +
+                     "       fetchMetricText('CurrencyExchangeSense') AS sense"+
                      " FROM gltrans"                                           +
                      " JOIN bankrecitem ON (gltrans_id=bankrecitem_source_id)" +
                      " JOIN bankrec    ON (bankrecitem_bankrec_id=bankrec_id)" +
@@ -125,6 +151,13 @@ var _    = require("underscore"),
     ;
 
     // set up /////////////////////////////////////////////////////////////////
+
+    it("should ensure year period and monthly periods exist", function (done) {
+      datasource.query(newPeriodSql, creds, function (err, res) {
+        assert.isNull(err, 'no exception from creating periods');
+        done();
+      });
+    });
 
     it("patches tax accts to ensure tax handling /can/ work", function (done) {
       var sql = "UPDATE tax SET tax_dist_accnt_id ="            +
@@ -1208,8 +1241,15 @@ var _    = require("underscore"),
         assert.equal(res.rowCount, 1);
         assert.isFalse(res.rows[0].gltrans_rec);
         assert.isFalse(res.rows[0].bankrec_posted);
-        assert.closeTo(Math.abs(res.rows[0].gltrans_amount), res.rows[0].base,
-                       closeEnough);
+
+        var sense = res.rows[0].sense;
+        if (sense == 1) {
+          assert.closeTo(Math.abs(res.rows[0].gltrans_amount), res.rows[0].div,
+                         closeEnough);
+        } else {
+          assert.closeTo(Math.abs(res.rows[0].gltrans_amount), res.rows[0].mul,
+                         closeEnough);
+        }
         done();
       });
     });

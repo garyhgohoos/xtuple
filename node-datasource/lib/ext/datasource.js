@@ -13,6 +13,7 @@ Backbone:true, _:true, X:true, __dirname:true, exports:true, module: true */
   var RJSON = require("rjson"),
     path = require('path'),
     _ = require("underscore"),
+    EventEmitter = require('events').EventEmitter,
     DataSource = {
       requestNum: 0,
       callbacks: { },
@@ -115,10 +116,10 @@ Backbone:true, _:true, X:true, __dirname:true, exports:true, module: true */
           // options.debugDatabase = X.options.datasource.debugDatabase;
           // worker.send({id: this.requestNum, query: query, options: options, creds: creds});
         } else {
-          if (X.options && X.options.datasource.debugging &&
-              query.indexOf('select xt.delete($${"nameSpace":"SYS","type":"SessionStore"') < 0 &&
+          if (X.options && query.indexOf('select xt.delete($${"nameSpace":"SYS","type":"SessionStore"') < 0 &&
               query.indexOf('select xt.get($${"nameSpace":"SYS","type":"SessionStore"') < 0) {
-            X.log(query);
+            X.capture(query);
+            X.debug(query);
           }
           X.pg.connect(creds, _.bind(this.connected, this, query, options, callback));
         }
@@ -133,10 +134,12 @@ Backbone:true, _:true, X:true, __dirname:true, exports:true, module: true */
       * You can also just run, "kill -USR1 12345", to start the debugger on a running process
       * instead of starting node with the debugger running: "sudo node --debug-brk main.js".
       */
-      connected: function (query, options, callback, err, client, done, ranInit) {
+      connected: function (query, options, callback, err, client, done) {
         // WARNING!!! If you make any changes here, please update pg_worker.js as well.
         var that = this,
-          queryCallback;
+          queryCallback,
+          errorHandlerCount = EventEmitter.listenerCount(client.connection, 'error'),
+          noticeHandlerCount = EventEmitter.listenerCount(client.connection, 'notice');
 
         if (err) {
           issue(X.warning("Failed to connect to database: " +
@@ -148,10 +151,8 @@ Backbone:true, _:true, X:true, __dirname:true, exports:true, module: true */
         client.status = [];
         client.debug = [];
 
-        if (ranInit === true) {
-          client.hasRunInit = true;
-
-          // Register error handler to log errors.
+        // Register error handler to log errors.
+        if (errorHandlerCount < 2) {
           client.connection.on('error', function (msg) {
             var lastQuery;
 
@@ -168,7 +169,9 @@ Backbone:true, _:true, X:true, __dirname:true, exports:true, module: true */
               X.err("Database Error! DB name = ", options.database);
             }
           });
+        }
 
+        if (noticeHandlerCount < 2) {
           client.connection.on('notice', function (msg) {
             if (msg && msg.message) {
               if (msg.severity === 'NOTICE') {
@@ -188,72 +191,66 @@ Backbone:true, _:true, X:true, __dirname:true, exports:true, module: true */
           });
         }
 
-        if (!client.hasRunInit) {
-          //client.query("set plv8.start_proc = \"xt.js_init\";", _.bind(
-          client.query("select xt.js_init(" + (X.options && X.options.datasource.debugDatabase || false) + ");", _.bind(
-            this.connected, this, query, options, callback, err, client, done, true));
-        } else {
-          queryCallback = function (err, result) {
-            if (err) {
-              // Set activeQuery for error event handler above.
-              that.activeQuery = client.activeQuery ? client.activeQuery.text : 'unknown. See PostgreSQL log.';
-            }
-
-            if (client.status && client.status.length) {
-              if (result) {
-                try {
-                  result.status = JSON.parse(client.status[0]);
-                } catch (error) {
-                  // Move on, no status message to set. We only want JSON messages here.
-                }
-              } else if (err) {
-                try {
-                  err.status = JSON.parse(client.status[0]);
-                } catch (error) {
-                  // Move on, no status message to set. We only want JSON messages here.
-                }
-              } else {
-                console.log("### FIX ME ### No result or err returned for query. This shouldn't happen.");
-                console.trace("### At this location ###");
-              }
-
-              if (client.status.length > 1) {
-                try {
-                  JSON.parse(client.status);
-                  console.log("### FIX ME ### Database is returning more than 1 message status. This shouldn't happen.");
-                  console.log("### FIX ME ### Status is: ", JSON.stringify(client.status));
-                  console.log("### FIX ME ### Query was: ", client.activeQuery ? client.activeQuery.text : 'unknown. See PostgreSQL log.');
-                  console.trace("### At this location ###");
-                } catch (error) {
-                  // Move on, no status message to set. We only want JSON messages here.
-                }
-              }
-            }
-            if (client.debug && client.debug.length) {
-              if (result) {
-                result.debug = client.debug;
-              } else if (err) {
-                err.debug = client.debug;
-              } else {
-                console.log("### FIX ME ### No result or err returned for query. This shouldn't happen.");
-                console.trace("### At this location ###");
-              }
-            }
-
-            // Release the client from the pool.
-            done();
-
-            // Call the call back.
-            callback(err, result);
-          };
-
-          // node-postgres supports parameters as a second argument. These will be options.parameters
-          // if they're there.
-          if (options.parameters) {
-            client.query(query, options.parameters, queryCallback);
-          } else {
-            client.query(query, queryCallback);
+        queryCallback = function (err, result) {
+          if (err) {
+            // Set activeQuery for error event handler above.
+            that.activeQuery = client.activeQuery ? client.activeQuery.text : 'unknown. See PostgreSQL log.';
           }
+
+          if (client.status && client.status.length) {
+            if (result) {
+              try {
+                result.status = JSON.parse(client.status[0]);
+              } catch (error) {
+                // Move on, no status message to set. We only want JSON messages here.
+              }
+            } else if (err) {
+              try {
+                err.status = JSON.parse(client.status[0]);
+              } catch (error) {
+                // Move on, no status message to set. We only want JSON messages here.
+              }
+            } else {
+              console.log("### FIX ME ### No result or err returned for query. This shouldn't happen.");
+              console.trace("### At this location ###");
+            }
+
+            if (client.status.length > 1) {
+              try {
+                JSON.parse(client.status);
+                console.log("### FIX ME ### Database is returning more than 1 message status. This shouldn't happen.");
+                console.log("### FIX ME ### Status is: ", JSON.stringify(client.status));
+                console.log("### FIX ME ### Query was: ", client.activeQuery ? client.activeQuery.text : 'unknown. See PostgreSQL log.');
+                console.trace("### At this location ###");
+              } catch (error) {
+                // Move on, no status message to set. We only want JSON messages here.
+              }
+            }
+          }
+          if (client.debug && client.debug.length) {
+            if (result) {
+              result.debug = client.debug;
+            } else if (err) {
+              err.debug = client.debug;
+            } else {
+              console.log("### FIX ME ### No result or err returned for query. This shouldn't happen.");
+              console.trace("### At this location ###");
+            }
+          }
+
+          // Release the client from the pool.
+          done();
+
+          // Call the call back.
+          callback(err, result);
+        };
+
+        // node-postgres supports parameters as a second argument. These will be options.parameters
+        // if they're there.
+        if (options.parameters) {
+          client.query(query, options.parameters, queryCallback);
+        } else {
+          client.query(query, queryCallback);
         }
       },
 
@@ -324,10 +321,6 @@ Backbone:true, _:true, X:true, __dirname:true, exports:true, module: true */
         query = "select xt.{method}($${payload}$$) as request"
                 .replace("{method}", method)
                 .replace("{payload}", payload);
-
-        //if (X.options.datasource.debugging) {
-        //  X.log("Query from model: ", query);
-        //}
 
         if (options.database) {
           conn.database = options.database;

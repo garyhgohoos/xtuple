@@ -1,6 +1,6 @@
 
 CREATE OR REPLACE FUNCTION deleteSo(INTEGER) RETURNS INTEGER AS $$
--- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple. 
+-- Copyright (c) 1999-2015 by OpenMFG LLC, d/b/a xTuple. 
 -- See www.xtuple.com/CPAL for the full text of the software license.
 DECLARE
   pSoheadid    ALIAS FOR $1;
@@ -9,8 +9,8 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE FUNCTION deleteSo(INTEGER, TEXT) RETURNS INTEGER AS $$
--- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple. 
+CREATE OR REPLACE FUNCTION deleteSo(integer, text) RETURNS INTEGER AS $$
+-- Copyright (c) 1999-2015 by OpenMFG LLC, d/b/a xTuple. 
 -- See www.xtuple.com/CPAL for the full text of the software license.
 DECLARE
   pSoheadid	ALIAS FOR $1;
@@ -22,10 +22,14 @@ DECLARE
   _poStatus     INTEGER := 0;
 
 BEGIN
+
 -- Get cohead
   SELECT * INTO _r FROM cohead WHERE (cohead_id=pSoheadid);
 
    IF (NOT FOUND) THEN
+     IF (COALESCE(pSonumber,'') != '') THEN
+       _result := releaseSoNumber(pSonumber);
+     END IF;  
      RETURN 0;
    END IF;
 

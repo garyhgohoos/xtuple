@@ -14,6 +14,7 @@ newcap:true, noarg:true, regexp:true, undef:true, strict:true, trailing:true, wh
     },
     datasource: {
       debugging: false,
+      capture: false,
       debugDatabase: false,
       enhancedAuthKey: "xTuple",
       sessionTimeout: 60,
@@ -42,6 +43,14 @@ newcap:true, noarg:true, regexp:true, undef:true, strict:true, trailing:true, wh
       smtpPort: 587,
       smtpUser: "",
       smtpPassword: "",
+      imap: {
+        users: [
+          { user: "bob", password: "mypass", box: "INBOX.ERP" }
+        ],
+        host: "mail.mycompany.com",
+        port: 993,
+        tls: true
+      },
       printer: "",
 
       // these properties are dynamically registered with the
@@ -73,9 +82,10 @@ newcap:true, noarg:true, regexp:true, undef:true, strict:true, trailing:true, wh
       password: "admin"
     },
     biServer: {
-      bihost: "localhost",
-      port: 8080,
-      httpsport: 8443,
+      bihttphost: "localhost",
+      bihttpport: 8080,
+      bihttpshost: "localhost",
+      bihttpsport: 8443,
       catalog: "xTuple",
       tenantname: "default",
       restkeyfile: "/etc/xtuple/lib/rest-keys"

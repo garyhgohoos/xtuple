@@ -22,10 +22,13 @@ BEGIN
      AND (NOT invhist_posted) )
     LIMIT 1;
     IF (NOT FOUND) THEN
+      -- no inventory transactions to thaw, update itemsite and return
       UPDATE itemsite
       SET itemsite_freeze=FALSE
       WHERE (itemsite_id=pItemsiteid);
-   END IF;
+
+      RETURN pItemsiteid;
+    END IF;
 
 --  Run through any invdetail if this itemsite is still MLC and/or Lot/Serial
     IF ( SELECT ( (itemsite_loccntrl) OR

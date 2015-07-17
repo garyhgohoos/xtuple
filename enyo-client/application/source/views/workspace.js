@@ -501,6 +501,8 @@ strict: false*/
           {kind: "onyx.GroupboxHeader", content: "_default".loc()},
           {kind: "XV.PriorityPicker", attr: "DefaultPriority",
             label: "_priority".loc()},
+          {kind: "onyx.GroupboxHeader", content: "_workflow".loc()},
+          {kind: "XV.CheckboxWidget", attr: "TriggerWorkflow", label: "_triggerWorkflow".loc()},
           {kind: "onyx.GroupboxHeader", content: "_creditCard".loc()},
           {kind: "XV.ScrollableGroupbox", name: "mainGroup", classes: "in-panel", components: [
             {kind: "XV.CreditCardGatewayCombobox", attr: "CCCompany",
@@ -519,6 +521,111 @@ strict: false*/
     ]
   });
 
+  // ..........................................................
+  // PRINT FORM
+  //
+
+  enyo.kind({
+    name: "XV.PrintFormWorkspace",
+    kind: "XV.Workspace",
+    title: "_printForm".loc(),
+    model: "XM.Form",
+    backText: "_cancel".loc(),
+    saveText: "_print".loc(),
+    hideApply: true,
+    hideRefresh: true,
+    dirtyWarn: false,
+    published: {
+      printModel: null
+    },
+    /**
+      Set Key field on the FormPicker to handle
+        filtering of Forms.
+    */
+    attributesChanged: function (model, options) {
+      this.inherited(arguments);
+      var that = this,
+        unsetAttr,
+        key = this.value.get("key");
+
+      if (this.$.formPicker) {
+        this.$.formPicker.setKey(key);
+      }
+
+      if (this.isDirty()) {
+        unsetAttr = _.filter(this.getComponents(), function (comp) {
+          if (comp.attr) {
+            return !comp.value;
+          }
+          return comp.attr;
+        });
+        // If every attr has a value, enable the Save (Print) button
+        if (!unsetAttr.length) {
+          that.parent.parent.$.saveButton.setDisabled(false);
+        }
+      }
+    },
+    /**
+      Hanle meta properly
+    */
+    metaChanged: function (inSender, inEvent) {
+      var attr = inEvent.originator.getAttr(),
+        value = inEvent.originator.getValue();
+
+      this.value.meta.set(attr, value);
+      this.attributesChanged();
+    },
+    /**
+      Print the report
+    */
+    save: function () {
+      var that = this,
+        orderModel = this.value.getValue("order"),
+        reportName = this.$.formPicker.value.getValue("reportName");
+
+      this.print({model: orderModel, reportName: reportName, printer: this.$.printer.getValue.id});
+      return this.doPrevious();
+    },
+    /**
+      Keep the Save (print) button disabled.
+    */
+    statusChanged: function (inSender, inEvent) {
+      this.inherited(arguments);
+      this.parent.parent.$.saveButton.setDisabled(true);
+    }
+  });
+
+  XV.registerModelWorkspace("XM.PrintForm", "XV.PrintFormWorkspace");
+
+  // ..........................................................
+  // PRINT SALES ORDER FORM WORKSPACE
+  //
+
+  enyo.kind({
+    name: "XV.PrintSalesOrderFormWorkspace",
+    kind: "XV.PrintFormWorkspace",
+    title: "_printSalesOrderForm".loc(),
+    components: [
+      {kind: "Panels", arrangerKind: "CarouselArranger", fit: true, components: [
+        {kind: "XV.Groupbox", name: "mainPanel", components: [
+          {kind: "onyx.GroupboxHeader", content: "_overview".loc()},
+          {kind: "XV.ScrollableGroupbox", name: "mainGroup", classes: "in-panel", components: [
+            {kind: "XV.SalesOrderWidget", attr: "order", label: "_salesOrder".loc()},
+            {kind: "XV.FormPicker", name: "formPicker", attr: "reportName"},
+            {kind: "XV.PrinterPicker", name: "printer", attr: "printer", label: "_printer".loc(),
+              onValueChange: "metaChanged"}
+          ]}
+        ]}
+      ]}
+    ]
+  });
+
+  XV.registerModelWorkspace("XM.PrintForm", "XV.PrintSalesOrderFormWorkspace");
+
+  // ..........................................................
+  // USER PREFERENCES
+  //
+
   enyo.kind({
     name: "XV.UserPreferenceWorkspace",
     kind: "XV.Workspace",
@@ -535,10 +642,57 @@ strict: false*/
           {kind: "XV.ScrollableGroupbox", name: "mainGroup",
             classes: "in-panel", components: [
           ]}
+        ]},
+        {kind: "XV.Groupbox", components: [
+          {kind: "onyx.GroupboxHeader", content: "_printSettings".loc()},
+          {kind: "XV.ScrollableGroupbox", name: "printSettingsGroup",
+            classes: "in-panel", components: [
+          ]}
         ]}
       ]}
-    ]
+    ],
+    /**
+      On create, cycle through the XM.printableObjects cache and create the enyo PrinterPickers
+      components.
+    */
+    create: function () {
+      this.inherited(arguments);
+      var printableObjects = XM.printableObjects,
+        that = this;
+
+      _.each(printableObjects, function (val, key) {
+        that.$.printSettingsGroup.createComponents([
+            {kind: "XV.PrinterPicker", attr: key, name: key, label: key.loc(),
+              onValueChange: "metaChanged"}
+          ], {owner: that});
+      });
+    },
+    /** 
+      PrintPicker value changed, call model's metaChanged for some special handling.
+    */
+    metaChanged: function (inSender, inEvent) {
+      var model = this.getValue(),
+        val = inSender.value ? inSender.value.id : null;
+      model.meta.set(inSender.attr, val);
+      model.metaChanged();
+    },
+    /**
+      Overload: Some special handling for start up. Go and set PrinterPicker value's based on
+      User's Print Settings preferences.
+    */
+    recordIdChanged: function () {
+      this.inherited(arguments);
+      var model = this.getValue();
+
+      if (!this._started && model && model.getStatus() === XM.Model.READY_CLEAN) {
+        model.statusReadyClean();
+        // Repaint workspace
+        this.attributesChanged();
+      }
+    }
   });
+
+  XV.registerModelWorkspace("XM.UserPreference", "XV.UserPreferenceWorkspace");
 
   // ..........................................................
   // CONTACT
@@ -1733,6 +1887,32 @@ strict: false*/
   XV.registerModelWorkspace("XM.PlannerCode", "XV.PlannerCodeWorkspace");
 
   // ..........................................................
+  // PRINTER
+  //
+
+  enyo.kind({
+    name: "XV.PrinterWorkspace",
+    kind: "XV.Workspace",
+    title: "_printers".loc(),
+    model: "XM.Printer",
+    components: [
+      {kind: "Panels", arrangerKind: "CarouselArranger",
+        fit: true, components: [
+        {kind: "XV.Groupbox", name: "mainPanel", components: [
+          {kind: "onyx.GroupboxHeader", content: "_overview".loc()},
+          {kind: "XV.ScrollableGroupbox", name: "mainGroup",
+            classes: "in-panel", components: [
+            {kind: "XV.InputWidget", attr: "name"},
+            {kind: "XV.InputWidget", attr: "description"}
+          ]}
+        ]}
+      ]}
+    ]
+  });
+
+  XV.registerModelWorkspace("XM.Printer", "XV.PrinterWorkspace");
+
+  // ..........................................................
   // PRIORITY
   //
 
@@ -1988,7 +2168,7 @@ strict: false*/
   //
 
   /**
-    This is the base kind for Quote and Sales order. This should include all common components
+    This is the base kind for Quote and Sales orderDateer. This should include all common components
     and functions.
   */
   enyo.kind({
@@ -2214,9 +2394,7 @@ strict: false*/
             {kind: "onyx.GroupboxHeader", content: "_delivery".loc()},
             {kind: "XV.DateWidget", attr: "scheduleDate"},
             {kind: "XV.DateWidget", attr: "promiseDate", showing: false,
-              name: "promiseDate"},
-            {kind: "XV.PurchaseOrderLineCharacteristicsWidget",
-              attr: "characteristics"}
+              name: "promiseDate"}
           ]}
         ]},
         {kind: "XV.Groupbox", name: "detailsPanel", title: "_detail".loc(),
@@ -2331,7 +2509,7 @@ strict: false*/
     actions: [{
       name: "print",
       isViewMethod: true,
-      label: "_print".loc(),
+      label: "_printAcknowledgement".loc(),
       privilege: "ViewSalesOrders",
       prerequisite: "isReadyClean"
     },
@@ -2355,7 +2533,7 @@ strict: false*/
             {kind: "XV.DateWidget", attr: "packDate"},
             {kind: "XV.InputWidget", attr: "formatStatus",
               label: "_status".loc()},
-            {kind: "XV.CheckboxWidget", attr: "printOnSaveSetting",
+            {kind: "XV.CheckboxWidget", attr: "printOnSaveSetting", name: "printOnSave",
               label: "_printOnSave".loc()},
             {kind: "onyx.GroupboxHeader", content: "_billTo".loc()},
             {kind: "XV.SalesCustomerWidget", attr: "customer",
@@ -2679,6 +2857,7 @@ strict: false*/
             classes: "in-panel", components: [
             {kind: "XV.InputWidget", attr: "code"},
             {kind: "XV.InputWidget", attr: "description"},
+            {kind: "XV.CheckboxWidget", attr: "default"},
             {kind: "XV.SalesEmailProfilePicker", attr: "emailProfile"},
             {kind: "XV.HoldTypePicker", attr: "defaultHoldType"},
             {kind: "XV.SaleTypeCharacteristicsWidget", attr: "characteristics"}

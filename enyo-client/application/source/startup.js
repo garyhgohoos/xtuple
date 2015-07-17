@@ -27,7 +27,8 @@ white:true*/
         "MaintainUsers",
         "MaintainPreferencesSelf",
         "MaintainWorkflowsSelf",
-        "MaintainAllWorkflows"
+        "MaintainAllWorkflows",
+        "MaintainPrinters"
       ];
       XT.session.addRelevantPrivileges("core", relevantPrivileges);
       XT.session.loadSessionObjects(XT.session.PRIVILEGES, options);
@@ -120,10 +121,14 @@ white:true*/
   XT.cacheCollection("XM.countries", "XM.CountryCollection", "name");
   XT.cacheCollection("XM.currencyRates", "XM.CurrencyRateCollection");
   XT.cacheCollection("XM.departments", "XM.DepartmentCollection", "number");
+  XT.cacheCollection("XM.forms", "XM.FormCollection", "name");
+  XT.cacheCollection("XM.labelForms", "XM.LabelFormCollection", "name");
+  XT.cacheCollection("XM.shipForms", "XM.ShipFormCollection", "name");
   XT.cacheCollection("XM.honorifics", "XM.HonorificCollection", "code");
   XT.cacheCollection("XM.itemGroups", "XM.ItemGroupRelationCollection", "name");
   XT.cacheCollection("XM.languages", "XM.LanguageCollection");
   XT.cacheCollection("XM.locales", "XM.LocaleCollection");
+  XT.cacheCollection("XM.printers", "XM.PrinterCollection", "name");
   XT.cacheCollection("XM.priorities", "XM.PriorityCollection");
   XT.cacheCollection("XM.privileges", "XM.PrivilegeCollection");
   XT.cacheCollection("XM.projectTypes", "XM.ProjectTypeCollection", "code");
@@ -142,6 +147,23 @@ white:true*/
   XT.cacheCollection("XM.filters", "XM.FilterCollection");
   XT.cacheCollection("XM.reasonCodes", "XM.ReasonCodeCollection");
   XT.cacheCollection("XM.vendorTypes", "XM.VendorTypeCollection");
+
+  /** 
+    Printable 'objects' for enyo UserPreferenceWorkspace to build PrintPicker components in create.
+    UserPreference backbone model also uses this to set meta attributes. 
+
+    XXX: Avoid the need for this. To be replaced when Forms object created.
+  */
+  XM.printableObjects = {
+    "EnterReceipt": "Browser",
+    "Invoice": "Browser",
+    "IssueToShipping": "Browser",
+    "Location": "Browser",
+    "PurchaseOrder": "Browser",
+    "PostProduction": "Browser",
+    "SalesOrder": "Browser",
+    "ShipShipment": "Browser"
+  };
 
   /**
     These ones are a little custom and need to be done longhand.

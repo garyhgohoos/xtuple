@@ -522,7 +522,7 @@ white:true*/
         total: 0,
         balance: 0,
         authorizedCredit: 0
-      
+
       };
     },
 
@@ -551,7 +551,43 @@ white:true*/
       "billtoPostalCode",
       "billtoCountry",
       "billtoPhone",
-    ]
+    ],
+
+    getPrintParameters: function (callback) {
+      var that = this,
+        dispOptions = {},
+        billing = new XM.Billing(),
+        invcShowPricesMetric,
+        reportName,
+        dispParams = {
+          docNumber: this.id,
+          table: "invchead",
+          column: "invchead_invcnumber"
+        };
+
+      dispOptions.success = function (resp) {
+        var id = resp;
+
+        callback({
+          id: id,
+          reportName: reportName,
+          printParameters: [
+            {name: "invchead_id", type: "integer", value: id},
+            {name: "showcosts", type: "boolean", value: invcShowPricesMetric.toString()}
+          ]
+        });
+      };
+
+      this.dispatch("XM.Sales", "findCustomerForm", [this.getValue("customer.uuid"), XM.Form.INVOICE], {success: function (resp) {
+        reportName = resp;
+        
+        billing.fetch({success: function (resp) {
+          invcShowPricesMetric = resp.getValue("InvoiceShowPrices") || resp.getValue("InvoiceShowPrices0");
+          
+          that.dispatch('XM.Model', 'fetchPrimaryKeyId', dispParams, dispOptions);
+        }});
+      }});
+    }
 
   }));
 
@@ -637,7 +673,9 @@ white:true*/
         success: options && options.success,
         error: options && options.error
       });
-    }
+    },
+
+    getPrintParameters: XM.Invoice.prototype.getPrintParameters
 
   });
 
@@ -654,6 +692,11 @@ white:true*/
     editableModel: 'XM.Invoice'
 
   });
+
+  XT.documentAssociations.INV = {
+    model: "XM.InvoiceRelation",
+    label: "_invoice".loc()
+  };
 
   /**
     @class
@@ -930,92 +973,6 @@ white:true*/
     idAttribute: 'uuid'
 
   });
-
-  /**
-    @class
-
-    @extends XM.Model
-  */
-  XM.InvoiceContact = XM.Model.extend({
-    /** @scope XM.InvoiceContact.prototype */
-
-    recordType: 'XM.InvoiceContact',
-
-    isDocumentAssignment: true
-
-  });
-
-  /**
-    @class
-
-    @extends XM.Model
-  */
-  XM.InvoiceAccount = XM.Model.extend({
-    /** @scope XM.InvoiceAccount.prototype */
-
-    recordType: 'XM.InvoiceAccount',
-
-    isDocumentAssignment: true
-
-  });
-
-  /**
-    @class
-
-    @extends XM.Model
-  */
-  XM.InvoiceCustomer = XM.Model.extend({
-    /** @scope XM.InvoiceCustomer.prototype */
-
-    recordType: 'XM.InvoiceCustomer',
-
-    isDocumentAssignment: true
-
-  });
-
-  /**
-    @class
-
-    @extends XM.Model
-  */
-  XM.InvoiceFile = XM.Model.extend({
-    /** @scope XM.InvoiceFile.prototype */
-
-    recordType: 'XM.InvoiceFile',
-
-    isDocumentAssignment: true
-
-  });
-
-  /**
-    @class
-
-    @extends XM.Model
-  */
-  XM.InvoiceUrl = XM.Model.extend({
-    /** @scope XM.InvoiceUrl.prototype */
-
-    recordType: 'XM.InvoiceUrl',
-
-    isDocumentAssignment: true
-
-  });
-
-  /**
-    @class
-
-    @extends XM.Model
-  */
-  XM.InvoiceItem = XM.Model.extend({
-    /** @scope XM.InvoiceItem.prototype */
-
-    recordType: 'XM.InvoiceItem',
-
-    isDocumentAssignment: true
-
-  });
-
-
 
 
   // ..........................................................

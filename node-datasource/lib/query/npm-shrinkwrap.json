@@ -1,18 +1,21 @@
 {
   "name": "xtuple-query",
-  "version": "1.0.0",
+  "version": "1.0.8",
   "dependencies": {
     "congruence": {
-      "version": "1.2.3",
-      "from": "congruence@1.2.3"
+      "version": "1.2.4",
+      "from": "congruence@1.2.4",
+      "resolved": "https://registry.npmjs.org/congruence/-/congruence-1.2.4.tgz"
     },
     "moment": {
       "version": "2.4.0",
-      "from": "moment@~2.4.0"
+      "from": "moment@~2.4.0",
+      "resolved": "https://registry.npmjs.org/moment/-/moment-2.4.0.tgz"
     },
     "underscore": {
       "version": "1.5.2",
-      "from": "underscore@~1.5.2"
+      "from": "underscore@~1.5.2",
+      "resolved": "https://registry.npmjs.org/underscore/-/underscore-1.5.2.tgz"
     }
   }
 }

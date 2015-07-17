@@ -406,9 +406,6 @@ select xt.install_js('XT','Data','xtuple', $$
                       identifiers.push("jt" + (joins.length - 1));
                       identifiers.push(prop.attr.column);
                       params[pcount] += "%" + (identifiers.length - 1) + "$I.%" + identifiers.length + "$I";
-                      if (param.isLower) {
-                        params[pcount] = "lower(" + params[pcount] + ")";
-                      }
                     } else {
                       sourceTableAlias = n === 0 && !isExtension ? "t1" : "jt" + (joins.length - 1);
                       if (prop.toOne && prop.toOne.type) {
@@ -496,8 +493,15 @@ select xt.install_js('XT','Data','xtuple', $$
                 /* e.g. %1$I = $1 or %1$I is null */
                 params[pcount] = params[pcount] + " " + op + ' $' + count + ' or ' + params[pcount] + ' is null';
               } else {
-                /* e.g. %1$I = $1 */
-                params[pcount] += " " + op + ' $' + count;
+                /* It's much faster to chech that param and check it again in */
+                /* all uppercase than to lowercase all column, so add an or upper() */
+                /* e.g. (%1$I.%2$I = $1 or %1$I.%2$I = upper($1)) */
+                if (param.isLower) {
+                var foo = params[pcount];
+                  params[pcount] = '(' + params[pcount] + ' ' + op + ' $' + count + ' or ' + params[pcount] + ' ' + op + ' upper($' + count + '))';
+                } else {
+                  params[pcount] += ' ' + op + ' $' + count;
+                }
               }
 
               orClause.push(params[pcount]);
@@ -961,9 +965,23 @@ select xt.install_js('XT','Data','xtuple', $$
         encryptionKey = options.encryptionKey,
         i,
         orm = this.fetchOrm(options.nameSpace, options.type),
-        sql = this.prepareInsert(orm, data, null, encryptionKey),
+        sql,
         pkey = XT.Orm.primaryKey(orm),
         rec;
+
+      /*
+        https://github.com/xtuple/xtuple/pull/1964
+        Document associations are stored "wrong" on the client.
+        Swap out the object of a document association for its primary key
+      */
+      if (orm.type === "DocumentAssociation" && typeof data.target === "object") {
+        var targetType = XT.documentAssociations[data.targetType];
+        var targetOrm = this.fetchOrm("XM", targetType);
+        var targetNaturalKeyAttr = XT.Orm.naturalKey(targetOrm);
+        var targetId = this.getId(targetOrm, data.target[targetNaturalKeyAttr]);
+        data.target = targetId;
+      }
+      sql = this.prepareInsert(orm, data, null, encryptionKey);
 
       /* Handle extensions on the same table. */
       for (var i = 0; i < orm.extensions.length; i++) {
@@ -1890,30 +1908,47 @@ select xt.install_js('XT','Data','xtuple', $$
      * @param {Number|String} Record id
      */
     getVersion: function (orm, id) {
-      if (!orm.lockable) { return; }
+      if (!orm.lockable) {
+        return;
+      }
 
       var etag,
+        i = 0,
         oid = this.getTableOid(orm.lockTable || orm.table),
         res,
-        sql = 'select ver_etag from xt.ver where ver_table_oid = $1 and ver_record_id = $2;';
+        selectSql = 'select ver_etag from xt.ver where ver_table_oid = $1 and ver_record_id = $2;',
+        insertSql = 'insert into xt.ver (ver_table_oid, ver_record_id, ver_etag) values ($1, $2, $3::uuid);';
 
-      if (DEBUG) {
-        XT.debug('getVersion sql = ', sql);
-        XT.debug('getVersion values = ', [oid, id]);
-      }
-      res = plv8.execute(sql, [oid, id]);
-      etag = res.length ? res[0].ver_etag : false;
+      while (i < 5) {
+        try {
+          if (DEBUG) {
+            XT.debug('getVersion sql = ', selectSql);
+            XT.debug('getVersion values = ', [oid, id]);
+          }
+          res = plv8.execute(selectSql, [oid, id]);
+          etag = res.length ? res[0].ver_etag : false;
 
-      if (!etag) {
-        etag = XT.generateUUID();
-        sql = 'insert into xt.ver (ver_table_oid, ver_record_id, ver_etag) values ($1, $2, $3::uuid);';
-        // TODO - Handle insert error.
+          if (!etag) {
+            etag = XT.generateUUID();
 
-        if (DEBUG) {
-          XT.debug('getVersion insert sql = ', sql);
-          XT.debug('getVersion insert values = ', [oid, id, etag]);
+            if (DEBUG) {
+              XT.debug('getVersion insert sql = ', insertSql);
+              XT.debug('getVersion insert values = ', [oid, id, etag]);
+            }
+            plv8.execute(insertSql, [oid, id, etag]);
+            /* The insert worked, exit the loop and move on. */
+            break;
+          } else {
+            /* The select worked, exit the loop and move on. */
+            break;
+          }
+        } catch (err) {
+          /* It's possible to get ERROR duplicate key value violates unique constraint */
+          /* "ver_ver_table_oid_ver_record_id" from the insert due to concurrency. */
+          /* Continue looping and try the insert again. */
+          plv8.elog(WARNING, 'Insert duplicate key error on XT.getVersion.');
+          i++;
         }
-        plv8.execute(sql, [oid, id, etag]);
       }
 
       return etag;
@@ -2073,6 +2108,7 @@ select xt.install_js('XT','Data','xtuple', $$
     @param {String} Return type 'text', 'boolean' or 'number' (default 'text')
     */
     fetchMetric: function (name, type) {
+      plv8.elog(ERROR, "name: " + name + " type: " + type);
       var fn = 'fetchmetrictext';
       if (type === 'boolean') {
         fn = 'fetchmetricbool';
@@ -2132,7 +2168,7 @@ select xt.install_js('XT','Data','xtuple', $$
       }
 
       /* If this object uses a natural key, go get the primary key id. */
-      if (nkey) {
+      if (nkey && !options.queryOnPrimaryKey) {
         id = this.getId(map, id);
         if (!id) {
           return false;

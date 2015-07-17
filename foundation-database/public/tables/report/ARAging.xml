@@ -459,7 +459,7 @@ FROM araging(&lt;? value("relDate") ?>, &lt;? value("useDocDate") ?>)
     <field>
      <rect>
       <x>825</x>
-      <y>5</y>
+      <y>8</y>
       <width>70</width>
       <height>11</height>
      </rect>
@@ -480,7 +480,7 @@ FROM araging(&lt;? value("relDate") ?>, &lt;? value("useDocDate") ?>)
     <field>
      <rect>
       <x>740</x>
-      <y>5</y>
+      <y>8</y>
       <width>70</width>
       <height>11</height>
      </rect>
@@ -522,7 +522,7 @@ FROM araging(&lt;? value("relDate") ?>, &lt;? value("useDocDate") ?>)
     <field>
      <rect>
       <x>570</x>
-      <y>5</y>
+      <y>8</y>
       <width>75</width>
       <height>11</height>
      </rect>
@@ -543,7 +543,7 @@ FROM araging(&lt;? value("relDate") ?>, &lt;? value("useDocDate") ?>)
     <field>
      <rect>
       <x>650</x>
-      <y>5</y>
+      <y>8</y>
       <width>75</width>
       <height>11</height>
      </rect>
@@ -606,7 +606,7 @@ FROM araging(&lt;? value("relDate") ?>, &lt;? value("useDocDate") ?>)
     <field>
      <rect>
       <x>900</x>
-      <y>5</y>
+      <y>8</y>
       <width>70</width>
       <height>11</height>
      </rect>

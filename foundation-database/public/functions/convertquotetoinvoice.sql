@@ -1,6 +1,5 @@
-
-CREATE OR REPLACE FUNCTION convertQuoteToInvoice(INTEGER) RETURNS INTEGER AS $$
--- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple. 
+CREATE OR REPLACE FUNCTION convertquotetoinvoice(integer) RETURNS integer AS $$
+-- Copyright (c) 1999-2015 by OpenMFG LLC, d/b/a xTuple. 
 -- See www.xtuple.com/CPAL for the full text of the software license.
 DECLARE
   pQuheadid ALIAS FOR $1;
@@ -15,6 +14,8 @@ DECLARE
   _blanketpos BOOLEAN := true;
   _showConvertedQuote BOOLEAN := false;
   _prospectid	INTEGER;
+  _charassid INTEGER := -1;
+  _c RECORD;  
   _r RECORD;
   _inNum TEXT;
 
@@ -186,6 +187,18 @@ BEGIN
   FROM quhead JOIN custinfo ON (cust_id=quhead_cust_id)
   WHERE (quhead_id=pQuheadid);
 
+  -- Copy characteristics from the quhead to the invoice head   
+  INSERT INTO charass
+        ( charass_target_type, charass_target_id, charass_char_id,
+          charass_value, charass_default, charass_price )
+  SELECT  'INV', _iheadid, charass_char_id,
+          charass_value, charass_default, charass_price 
+    FROM charass 
+    JOIN char ON (char_id=charass_char_id)
+    WHERE ( (char_invoices)
+      AND   (charass_target_type='QU')
+      AND   (charass_target_id=pQuheadid)); 
+
 -- Attachments on Invoice not supported but leaving this in for future use:
 /*
   UPDATE url SET url_source_id = _iheadid,
@@ -259,8 +272,6 @@ BEGIN
       WHERE (quhead_id=pQuheadid);
     END IF;
 
--- Chracteristics not supported on Invoice but leaving in for future use:
-
 /*
     INSERT INTO charass
           (charass_target_type, charass_target_id, charass_char_id, charass_value, charass_default, charass_price)
@@ -309,15 +320,9 @@ BEGIN
         UPDATE pr SET pr_prj_id=_r.quhead_prj_id WHERE pr_id=_orderId;
       ELSIF ( (_r.item_type IN ('P', 'O')) AND (_r.itemsite_createsopo) ) THEN
         IF (_r.quitem_prcost=0) THEN
--- For now quote to invoice/dropship will not be supported but with the creation of a createPurchaseToQuote() version of createPurchaseToSale()
--- it can be
---          SELECT createPurchaseToSale(_iitemid, _r.itemsrcid, _r.quitem_dropship) INTO _orderId;
-            RAISE EXCEPTION 'Quote contains one or more dropship items that may not be converted from a Quote to an Invoice';
+          SELECT createpurchasetoquote(_r.quitem_id, _r.itemsrcid, _r.quitem_dropship) INTO _orderId;
         ELSE
--- For now quote to invoice/dropship will not be supported but with the creation of a createPurchaseToQuote() version of createPurchaseToSale()
--- it can be
---          SELECT createPurchaseToSale(_iitemid, _r.itemsrcid, _r.quitem_dropship, _r.quitem_prcost) INTO _orderId;
-            RAISE EXCEPTION 'Quote contains one or more dropship items that may not be converted from a Quote to an Invoice';
+          SELECT createpurchasetoquote(_r.quitem_id, _r.itemsrcid, _r.quitem_dropship, _r.quitem_prcost) INTO _orderId;
         END IF;
         _orderType := 'P';
       END IF;
@@ -343,7 +348,4 @@ BEGIN
   RETURN _iheadid;
 
 END;
-$$
-  LANGUAGE plpgsql VOLATILE
-  COST 100;
-
+$$ LANGUAGE plpgsql;
