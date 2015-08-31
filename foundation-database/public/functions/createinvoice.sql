@@ -1,9 +1,8 @@
 
-CREATE OR REPLACE FUNCTION createInvoice(INTEGER) RETURNS INTEGER AS $$
+CREATE OR REPLACE FUNCTION createInvoice(pCobmiscid INTEGER) RETURNS INTEGER AS $$
 -- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple. 
 -- See www.xtuple.com/CPAL for the full text of the software license.
 DECLARE
-  pCobmiscid ALIAS FOR $1;
   _invcheadid INTEGER;
   _invcitemid INTEGER;
   _qtyToInvoice	NUMERIC;
@@ -22,10 +21,9 @@ BEGIN
   SELECT NEXTVAL('invchead_invchead_id_seq') INTO _invcheadid;
 
 --  Give this selection a number if it has not been assigned one
-  UPDATE cobmisc
-  SET cobmisc_invcnumber=fetchInvcNumber()
-  WHERE ( (cobmisc_invcnumber IS NULL)
-   AND (cobmisc_id=pCobmiscid) );
+  UPDATE cobmisc SET cobmisc_invcnumber=fetchInvcNumber()
+  WHERE (cobmisc_invcnumber IS NULL)
+    AND (cobmisc_id=pCobmiscid);
 
 --  Create the Invoice header
   INSERT INTO invchead
