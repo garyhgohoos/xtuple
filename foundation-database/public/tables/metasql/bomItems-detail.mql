@@ -42,7 +42,7 @@ SELECT bomitem_id, item_id, *,
             WHEN (item_type='M') THEN 'altemphasis'
        END AS qtforegroundrole
 <? if exists("booitem_id") ?>
-FROM bomitem(<? value("item_id") ?>), item, uom, xtmfg.booitem
+FROM bomitem(<? value("item_id") ?>, <? value("revision_id") ?>), item, uom, xtmfg.booitem
 <? else ?>
 FROM bomitem(<? value("item_id") ?>, <? value("revision_id") ?>), item, uom
 <? endif ?>

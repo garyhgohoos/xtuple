@@ -25,12 +25,12 @@ BEGIN
   END IF;
 
   IF (TG_OP IN ('INSERT', 'UPDATE') AND NEW.aropen_cust_id < 0) THEN
-    RAISE NOTICE 'Fixing deprecated use of negative aropen_cust_id';
+    RAISE WARNING 'Fixing deprecated use of negative aropen_cust_id';
     NEW.aropen_cust_id := NULL;
   END IF;
 
   IF (TG_OP IN ('INSERT', 'UPDATE') AND NEW.aropen_salesrep_id < 0) THEN
-    RAISE NOTICE 'Fixing deprecated use of negative aropen_salesrep_id';
+    RAISE WARNING 'Fixing deprecated use of negative aropen_salesrep_id';
     NEW.aropen_salesrep_id := NULL;
   END IF;
 

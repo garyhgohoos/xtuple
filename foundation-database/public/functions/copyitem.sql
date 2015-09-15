@@ -1,5 +1,5 @@
 CREATE OR REPLACE FUNCTION copyItem(INTEGER, TEXT) RETURNS INTEGER AS $$
--- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple. 
+-- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple.
 -- See www.xtuple.com/CPAL for the full text of the software license.
 DECLARE
   pSItemid ALIAS FOR $1;
@@ -35,7 +35,7 @@ BEGIN
   FROM imageass
   WHERE ((imageass_source_id=pSItemid)
   AND (imageass_source='I'));
-  
+
   INSERT INTO url
   (url_source_id, url_source, url_title, url_url)
   SELECT _itemid, 'I', url_title, url_url
@@ -89,7 +89,7 @@ END;
 $$ LANGUAGE 'plpgsql';
 
 CREATE OR REPLACE FUNCTION copyItem(INTEGER, TEXT, BOOLEAN, BOOLEAN, BOOLEAN) RETURNS INTEGER AS $$
--- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple. 
+-- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple.
 -- See www.xtuple.com/CPAL for the full text of the software license.
 DECLARE
   pSItemid ALIAS FOR $1;
@@ -98,13 +98,13 @@ DECLARE
   pCopyBOO ALIAS FOR $4;        -- deprecated - xtmfg-specific
   pCopyCosts ALIAS FOR $5;
 BEGIN
-  RAISE NOTICE 'copyItem(INTEGER, TEXT, BOOLEAN, BOOLEAN, BOOLEAN) has been deprecated.  Use copyItem(INTEGER, TEXT) or copyItem(INTEGER, TEXT, BOOLEAN, BOOLEAN) or a package-specific version instead.';
+  RAISE WARNING 'copyItem(INTEGER, TEXT, BOOLEAN, BOOLEAN, BOOLEAN) has been deprecated.  Use copyItem(INTEGER, TEXT) or copyItem(INTEGER, TEXT, BOOLEAN, BOOLEAN) or a package-specific version instead.';
   RETURN copyItem(pSItemid, pTItemNumber, pCopyBOM, pCopyCosts);
 END;
 $$ LANGUAGE 'plpgsql';
 
 CREATE OR REPLACE FUNCTION copyItem(INTEGER, TEXT, BOOLEAN, BOOLEAN) RETURNS INTEGER AS $$
--- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple. 
+-- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple.
 -- See www.xtuple.com/CPAL for the full text of the software license.
 DECLARE
   pSItemid      ALIAS FOR $1;
@@ -139,7 +139,7 @@ END;
 $$ LANGUAGE 'plpgsql';
 
 CREATE OR REPLACE FUNCTION copyItem(INTEGER, TEXT, BOOLEAN, BOOLEAN, BOOLEAN, BOOLEAN) RETURNS INTEGER AS $$
--- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple. 
+-- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple.
 -- See www.xtuple.com/CPAL for the full text of the software license.
 DECLARE
   pSItemid ALIAS FOR $1;

@@ -31,6 +31,12 @@ DECLARE
   _effective DATE;
 
 BEGIN
+
+-- Sometimes NULL itemsrc is passed (#25898)
+  IF (pItemsrcid IS NULL) THEN 
+    RETURN NULL;
+  END IF; 
+
 -- If no pEffective passed, use current date
   _effective := COALESCE(pEffective, CURRENT_DATE);
 

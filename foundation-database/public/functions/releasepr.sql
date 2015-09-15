@@ -1,6 +1,6 @@
 
 CREATE OR REPLACE FUNCTION releasePR(pPrId INTEGER) RETURNS INTEGER AS $$
--- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple. 
+-- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple.
 -- See www.xtuple.com/CPAL for the full text of the software license.
 DECLARE
   _pr RECORD;
@@ -59,14 +59,14 @@ BEGIN
       RETURN -2;
     END IF;
   END IF;
-    
+
   SELECT * INTO _i
   FROM itemsrc JOIN vendinfo ON (itemsrc_vend_id = vend_id)
                LEFT OUTER JOIN cntct ON (vend_cntct1_id = cntct_id)
                LEFT OUTER JOIN addr ON (vend_addr_id = addr_id)
   WHERE (itemsrc_id = _itemsrcid);
 
-  RAISE NOTICE 'releasepr selected itemsrc_id = % for pr = %', _itemsrcid, _pr.pr_id;
+  --RAISE NOTICE 'releasepr selected itemsrc_id = % for pr = %', _itemsrcid, _pr.pr_id;
 
   -- Find matching unreleased PO
   SELECT COALESCE(pohead_id, -1) INTO _poheadid
@@ -95,12 +95,12 @@ BEGIN
         pohead_shipto_cntct_honorific, pohead_shipto_cntct_first_name,
         pohead_shipto_cntct_middle, pohead_shipto_cntct_last_name,
         pohead_shipto_cntct_suffix, pohead_shipto_cntct_phone,
-        pohead_shipto_cntct_title, pohead_shipto_cntct_fax, 
+        pohead_shipto_cntct_title, pohead_shipto_cntct_fax,
         pohead_shipto_cntct_email, pohead_shiptoaddress_id,
         pohead_shiptoaddress1,
         pohead_shiptoaddress2,
         pohead_shiptoaddress3,
-        pohead_shiptocity, 
+        pohead_shiptocity,
         pohead_shiptostate, pohead_shiptozipcode,
         pohead_shiptocountry, pohead_vend_cntct_id,
         pohead_vend_cntct_honorific, pohead_vend_cntct_first_name,
@@ -157,14 +157,14 @@ BEGIN
 
   -- Create PO Item
   INSERT INTO poitem
-    ( poitem_id, poitem_status, poitem_pohead_id, poitem_linenumber, 
+    ( poitem_id, poitem_status, poitem_pohead_id, poitem_linenumber,
       poitem_duedate, poitem_itemsite_id,
       poitem_vend_item_descrip, poitem_vend_uom,
-      poitem_invvenduomratio, poitem_qty_ordered, 
+      poitem_invvenduomratio, poitem_qty_ordered,
       poitem_unitprice, poitem_vend_item_number, poitem_itemsrc_id,
       poitem_order_id, poitem_order_type,
-      poitem_prj_id, poitem_stdcost, 
-      poitem_manuf_name, poitem_manuf_item_number, 
+      poitem_prj_id, poitem_stdcost,
+      poitem_manuf_name, poitem_manuf_item_number,
       poitem_manuf_item_descrip, poitem_taxtype_id, poitem_comments )
   VALUES
     ( _poitemid, 'U', _poheadid, _polinenumber,

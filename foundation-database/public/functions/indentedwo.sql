@@ -151,7 +151,7 @@ BEGIN
     _qry := 'SELECT wo_id,wo_number,wo_subnumber,wo_status,wo_startdate,wo_duedate,
          wo_adhoc,wo_itemsite_id,qtyAvailable(itemsite_id) AS availableqoh,wo_qtyord,wo_qtyrcv, wo_prodnotes,
          item_number,item_descrip1, item_descrip2, item_listprice, uom_name,
-         womatl_qtyiss, womatl_scrap, womatl_wooper_id
+         womatl_qtyiss, womatl_qtywipscrap, womatl_wooper_id
        FROM itemsite,  wo, item, uom, womatl 
        WHERE ((wo_ordid = ' || pwoid || ')
          AND (wo_ordtype = ''W'')
@@ -189,7 +189,7 @@ BEGIN
         _row.wodata_qtyiss := _x.womatl_qtyiss;  
         _row.wodata_qtyrcv := _x.wo_qtyrcv;   
         _row.wodata_qtyordreq := _x.wo_qtyord; 
-	_row.wodata_scrap := _x.womatl_scrap;  
+	_row.wodata_scrap := _x.womatl_qtywipscrap;  
         _row.wodata_notes := _x.wo_prodnotes;       
         _row.wodata_level := plevel;                
         RETURN NEXT _row;  

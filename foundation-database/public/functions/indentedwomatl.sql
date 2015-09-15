@@ -41,7 +41,7 @@ BEGIN
   _qry := 'SELECT womatl_id, wo_number, wo_subnumber, 
       wo_startdate, womatl_duedate, womatl_itemsite_id,
       qtyAvailable(itemsite_id) AS availableqoh, womatl_qtyreq, womatl_qtyiss,
-      womatl_qtyper, womatl_qtyreq, womatl_scrap,
+      womatl_qtyper, womatl_qtyreq, womatl_qtywipscrap,
       womatl_ref, womatl_notes, womatl_price, item_listprice,
       item_number, item_descrip1, item_descrip2,
       uom_name
@@ -88,7 +88,7 @@ BEGIN
     _subrow.wodata_qtyiss := _subx.womatl_qtyiss;         
     _subrow.wodata_qtyordreq := _subx.womatl_qtyreq;     
     _subrow.wodata_qtyuom := _subx.uom_name;   
-    _subrow.wodata_scrap := _subx.womatl_scrap;        
+    _subrow.wodata_scrap := _subx.womatl_qtywipscrap;        
     _subrow.wodata_notes := _subx.womatl_notes;
     _subrow.wodata_ref := _subx.womatl_ref;       
     _subrow.wodata_level := _level;                                   

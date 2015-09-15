@@ -1,5 +1,5 @@
 CREATE OR REPLACE FUNCTION postProduction(INTEGER, NUMERIC, BOOLEAN, INTEGER, TIMESTAMP WITH TIME ZONE) RETURNS INTEGER AS $$
--- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple. 
+-- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple.
 -- See www.xtuple.com/CPAL for the full text of the software license.
 DECLARE
   pWoid          ALIAS FOR $1;
@@ -72,12 +72,12 @@ BEGIN
   END IF;
 
   IF (pBackflush) THEN
-    FOR _r IN SELECT womatl_id, womatl_qtyiss + 
-		     (CASE 
+    FOR _r IN SELECT womatl_id, womatl_qtyiss +
+		     (CASE
 		       WHEN (womatl_qtywipscrap >  ((womatl_qtyfxd + (_parentQty + wo_qtyrcv) * womatl_qtyper) * womatl_scrap)) THEN
                          (womatl_qtyfxd + (_parentQty + wo_qtyrcv) * womatl_qtyper) * womatl_scrap
-		       ELSE 
-		         womatl_qtywipscrap 
+		       ELSE
+		         womatl_qtywipscrap
 		      END) AS consumed,
 		     (womatl_qtyfxd + ((_parentQty + wo_qtyrcv) * womatl_qtyper)) * (1 + womatl_scrap) AS expected
 	      FROM womatl, wo, itemsite, item
@@ -130,7 +130,7 @@ BEGIN
   IF (pQty < 0 ) THEN
     _wipPost := _wipPost * -1;
   END IF;
-  
+
 --  Increase this W/O's received qty decrease its WIP value
   UPDATE wo
   SET wo_qtyrcv = (wo_qtyrcv + _parentQty),
@@ -145,7 +145,7 @@ BEGIN
    AND (wo_id=pWoid));
 
 --  ROB Increase this W/O's WIP value for custom costing
-  SELECT SUM(itemcost_stdcost * _parentQty) INTO _ucost 
+  SELECT SUM(itemcost_stdcost * _parentQty) INTO _ucost
   FROM wo JOIN itemsite ON (itemsite_id=wo_itemsite_id)
           JOIN itemcost ON (itemcost_item_id=itemsite_item_id)
           JOIN costelem ON ((costelem_id=itemcost_costelem_id) AND
@@ -160,19 +160,19 @@ BEGIN
 --  ROB Distribute to G/L - create Cost Variance, debit WIP
   PERFORM insertGLTransaction( 'W/O', 'WO', _woNumber,
                                ('Post Other Cost ' || item_number || ' ' || _sense || ' Manufacturing'),
-                               getPrjAccntId(wo_prj_id, costelem_exp_accnt_id), 
+                               getPrjAccntId(wo_prj_id, costelem_exp_accnt_id),
                                getPrjAccntId(wo_prj_id,costcat_wip_accnt_id), _invhistid,
 			       (itemcost_stdcost * _parentQty),
                                 pGlDistTS::DATE )
 FROM wo, costelem, itemcost, costcat, itemsite, item
-WHERE 
+WHERE
   ((wo_id=pWoid) AND
   (wo_itemsite_id=itemsite_id) AND
   (itemsite_item_id=item_id) AND
   (costelem_id = itemcost_costelem_id) AND
   (itemcost_item_id = itemsite_item_id) AND
   (itemsite_costcat_id = costcat_id) AND
-  (costelem_exp_accnt_id) IS NOT NULL  AND 
+  (costelem_exp_accnt_id) IS NOT NULL  AND
   (costelem_sys = false));
 --End
 
@@ -188,28 +188,28 @@ END;
 $$ LANGUAGE 'plpgsql';
 
 CREATE OR REPLACE FUNCTION postProduction(INTEGER, NUMERIC, BOOLEAN, BOOLEAN) RETURNS INTEGER AS $$
--- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple. 
+-- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple.
 -- See www.xtuple.com/CPAL for the full text of the software license.
 BEGIN
-  RAISE NOTICE 'postProduction(INTEGER, NUMERIC, BOOLEAN, BOOLEAN) is deprecated. please use postProduction(INTEGER, NUMERIC, BOOLEAN, INTEGER, TIMESTAMP WITH TIME ZONE) instead';
+  RAISE WARNING 'postProduction(INTEGER, NUMERIC, BOOLEAN, BOOLEAN) is deprecated. please use postProduction(INTEGER, NUMERIC, BOOLEAN, INTEGER, TIMESTAMP WITH TIME ZONE) instead';
   RETURN postProduction($1, $2, $3, 0, now());
 END;
 $$ LANGUAGE 'plpgsql';
 
 CREATE OR REPLACE FUNCTION postProduction(INTEGER, NUMERIC, BOOLEAN, BOOLEAN, INTEGER) RETURNS INTEGER AS $$
--- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple. 
+-- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple.
 -- See www.xtuple.com/CPAL for the full text of the software license.
 BEGIN
-  RAISE NOTICE 'postProduction(INTEGER, NUMERIC, BOOLEAN, BOOLEAN, INTEGER) is deprecated. please use postProduction(INTEGER, NUMERIC, BOOLEAN, INTEGER, TIMESTAMP WITH TIME ZONE) instead';
+  RAISE WARNING 'postProduction(INTEGER, NUMERIC, BOOLEAN, BOOLEAN, INTEGER) is deprecated. please use postProduction(INTEGER, NUMERIC, BOOLEAN, INTEGER, TIMESTAMP WITH TIME ZONE) instead';
   RETURN postProduction($1, $2, $3, $5, now());
 END;
 $$ LANGUAGE 'plpgsql';
 
 CREATE OR REPLACE FUNCTION postProduction(INTEGER, NUMERIC, BOOLEAN, BOOLEAN, INTEGER, TEXT, TEXT) RETURNS INTEGER AS $$
--- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple. 
+-- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple.
 -- See www.xtuple.com/CPAL for the full text of the software license.
 BEGIN
-  RAISE NOTICE 'postProduction(INTEGER, NUMERIC, BOOLEAN, BOOLEAN, INTEGER, TEXT, TEXT) is deprecated. please use postProduction(INTEGER, NUMERIC, BOOLEAN, INTEGER, TIMESTAMP WITH TIME ZONE) instead';
+  RAISE WARNING 'postProduction(INTEGER, NUMERIC, BOOLEAN, BOOLEAN, INTEGER, TEXT, TEXT) is deprecated. please use postProduction(INTEGER, NUMERIC, BOOLEAN, INTEGER, TIMESTAMP WITH TIME ZONE) instead';
   RETURN postProduction($1, $2, $3, $5, now());
 END;
 $$ LANGUAGE 'plpgsql';

@@ -1,5 +1,6 @@
 do $$
 declare
+  _b    boolean;
   _i    integer := 1;
   _ins  text;
   _pair text[] = array[ /* should be 2D array */
@@ -8,7 +9,7 @@ declare
     'I',       'char_items',
     'CNTCT',   'char_contacts',
     'ADDR',    'char_addresses',
-    'CRMA',    'char_crmaccounts',
+    'CRMACCT', 'char_crmaccounts',
     'LS',      'char_lotserial',
     'LSR',     'char_lotserial',
     'OPP',     'char_opportunity',
@@ -25,6 +26,11 @@ declare
   ];
 
   begin
+    /* bug 26266 - must precede the for loop { */
+    update public.charuse
+       set charuse_target_type = 'CRMACCT'
+     where charuse_target_type = 'CRMA';
+
     for _i in 1..array_length(_pair, 1) by 2 loop
       _ins := format($f$insert into public.charuse (
                          charuse_char_id, charuse_target_type

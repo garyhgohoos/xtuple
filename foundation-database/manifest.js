@@ -24,6 +24,7 @@
 
     "public/patches/fixflcol.sql",
     "public/patches/fixaccntname.sql",
+    "public/patches/drop_share_users_triggers.sql",
 
     "public/indexes/apopentax.sql",
     "public/indexes/aropentax.sql",
@@ -1681,6 +1682,8 @@
     "public/tables/report/WarehouseLocationMasterList.xml",
     "public/tables/report/WarehouseMasterList.xml",
     "public/tables/report/items.xml",
+
+    "public/trigger_functions/charuse.sql",
 
     "public/patches/fixacl.sql",
     "public/patches/populate_ccpay_card_type.sql",

@@ -148,7 +148,7 @@ select createDoctype(9, --pDocAssNum
                      'cntct_number', --pNumber
                      'cntct_name', --pName
                      'cntct_title', --pDesc
-                     '', --pWidget
+                     'core', --pWidget
                      '', --pJoin
                      'cntct_id', --pParam
                      'contact', --pUi
@@ -201,7 +201,7 @@ select createDoctype(12, --pDocAssNum
                      'item_number', --pDesc
                      '', --pWidget
                      'join cmhead on cmitem_cmhead_id=cmhead_id join custinfo on cmhead_cust_id=cust_id ' ||
-                        'join itemsite on cmitem_itemsite_id=itemsite_id join item on itemsite_item_id=item_id' --pJoin
+                        'join itemsite on cmitem_itemsite_id=itemsite_id join item on itemsite_item_id=item_id', --pJoin
                      '', --pParam
                      '', --pUi
                      '', --pPriv
@@ -217,7 +217,7 @@ select createDoctype(13, --pDocAssNum
                      'cust_number', --pNumber
                      'cust_name', --pName
                      'firstline(cust_comments)', --pDesc
-                     '', --pWidget
+                     'core', --pWidget
                      '', --pJoin
                      'cust_id', --pParam
                      'customer', --pUi
@@ -278,7 +278,7 @@ select createDoctype(16, --pDocAssNum
 select createDoctype(17, --pDocAssNum
                      'INVI', --pType
                      'INVI', --pDocAss
-                     '', --pCharAss
+                     'INVI', --pCharAss
                      'Invoice Item', --pFull
                      'invcitem', --pTable
                      'invcitem_id', --pKey
@@ -287,7 +287,7 @@ select createDoctype(17, --pDocAssNum
                      'item_number', --pDesc
                      '', --pWidget
                      'join invchead on invcitem_invchead_id = invchead_id ' ||
-                        'join custinfo on invchead_cust_id = cust_id join item on invcitem_item_id=item_id' --pJoin
+                        'join custinfo on invchead_cust_id = cust_id join item on invcitem_item_id=item_id', --pJoin
                      '', --pParam
                      '', --pUi
                      '', --pPriv
@@ -432,7 +432,7 @@ select createDoctype(25, --pDocAssNum
 select createDoctype(26, --pDocAssNum
                      'PI', --pType
                      'PI', --pDocAss
-                     '', --pCharAss
+                     'PI', --pCharAss
                      'Purchase Order Item', --pFull
                      'poitem', --pTable
                      'poitem_id', --pKey
@@ -502,7 +502,7 @@ select createDoctype(29, --pDocAssNum
 select createDoctype(30, --pDocAssNum
                      'QI', --pType
                      'QI', --pDocAss
-                     '', --pCharAss
+                     'QI', --pCharAss
                      'Quote Item', --pFull
                      'quitem', --pTable
                      'quitem_id', --pKey
@@ -537,7 +537,7 @@ select createDoctype(31, --pDocAssNum
 select createDoctype(32, --pDocAssNum
                      'SI', --pType
                      'SI', --pDocAss
-                     '', --pCharAss
+                     'SI', --pCharAss
                      'Sales Order Item', --pFull
                      'coitem', --pTable
                      'coitem_id', --pKey
@@ -583,7 +583,7 @@ select createDoctype(34, --pDocAssNum
                      'join emp on tehead_emp_id = emp_id', --pJoin
                      'tehead_id', --pParam
                      'timeExpenseSheet', --pUi
-                     '' --pPriv
+                     '', --pPriv
                      'TE' --pModule
 );
 select createDoctype(35, --pDocAssNum
@@ -647,7 +647,7 @@ select createDoctype(38, --pDocAssNum
                      'vend_number', --pNumber
                      'vend_name', --pName
                      'firstline(vend_comments)', --pDesc
-                     '', --pWidget
+                     'core', --pWidget
                      '', --pJoin
                      'vend_id', --pParam
                      'vendor', --pUi
@@ -691,7 +691,7 @@ select createDoctype(40, --pDocAssNum
 select createDoctype(41, --pDocAssNum
                      'W', --pType
                      'W', --pDocAss
-                     '', --pCharAss
+                     'W', --pCharAss
                      'Work Order', --pFull
                      'wo', --pTable
                      'wo_id', --pKey
@@ -769,6 +769,7 @@ select createDoctype(NULL, --pDocAssNum
                      '', --pWidget
                      '', --pJoin
                      '', --pParam
+                     '', --pUi
                      '', --pPriv
                      'Accounting' --pModule
 );
@@ -822,4 +823,21 @@ select createDoctype(NULL, --pDocAssNum
                      'lotSerialRegistration', --pUi
                      '', --pPriv
                      'Sales' --pModule
+);
+select createDoctype(NULL, --pDocAssNum
+                     'PR', --pType
+                     '', --pDocAss
+                     'PR', --pCharAss
+                     'Purchase Request', --pFull
+                     'pr', --pTable
+                     'pr_id', --pKey
+                     'pr_number::text', --pNumber
+                     'pr_subnumber::text', --pName
+                     'pr_releasenote', --pDesc
+                     '', --pWidget
+                     '', --pJoin
+                     'pr_id', --pParam
+                     'purchaseRequest', --pUi
+                     'MaintainPurchaseRequests ViewPurchaseRequests', --pPriv
+                     'Purchase' --pModule
 );

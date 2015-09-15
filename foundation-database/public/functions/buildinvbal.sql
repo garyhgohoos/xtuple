@@ -1,5 +1,5 @@
 CREATE OR REPLACE FUNCTION buildInvBal(integer) RETURNS INTEGER AS $$
--- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple. 
+-- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple.
 -- See www.xtuple.com/CPAL for the full text of the software license.
 DECLARE
   pItemsiteId ALIAS FOR $1;
@@ -21,7 +21,7 @@ BEGIN
       JOIN item ON (item_id=itemsite_item_id)
       JOIN whsinfo ON (itemsite_warehous_id=warehous_id)
     WHERE (itemsite_id=pItemsiteId);
-    
+
     RAISE EXCEPTION 'Unposted inventory transactions exist for % at % [xtuple: buildInvBal, -1, %, %]',
                     _r.item_number, _r.warehous_code,
                     _r.item_number, _r.warehous_code;
@@ -30,7 +30,7 @@ BEGIN
   -- Remove any old records
   DELETE FROM invbal WHERE invbal_itemsite_id=pItemsiteId;
 
-  FOR _r IN 
+  FOR _r IN
     SELECT invhist.*,
       itemsite_item_id, invhistSense(invhist_id) AS sense,
       item_number, warehous_code
@@ -41,7 +41,7 @@ BEGIN
     WHERE (invhist_itemsite_id=pItemsiteId)
     ORDER BY invhist_created, invhist_id
   LOOP
-    RAISE NOTICE 'Calculating balances for Item % at Site % against transaction %, transtype %, sense %, qty %, %', _r.item_number, _r.warehous_code, _r.invhist_id, _r.invhist_transtype, _r.sense, _r.invhist_invqty, _r.invhist_comments;
+    --RAISE NOTICE 'Calculating balances for Item % at Site % against transaction %, transtype %, sense %, qty %, %', _r.item_number, _r.warehous_code, _r.invhist_id, _r.invhist_transtype, _r.sense, _r.invhist_invqty, _r.invhist_comments;
     -- Update balances changed by any standard cost update between transactions
     IF (_prevCostmethod = 'S' AND _runningQty != 0) THEN
       PERFORM postValueintoInvBalance(pItemsiteid, costhist_date::date, _runningQty, _runningNn, costhist_oldcost, costhist_newcost )
@@ -60,7 +60,7 @@ BEGIN
     IF (_r.invhist_transtype = 'NN') THEN
       _runningNn := _runningNn + _r.invhist_invqty * -1;
     END IF;
-    
+
   END LOOP;
 
   -- Update balances changed by any standard cost since last transaction
@@ -74,7 +74,7 @@ BEGIN
 
   -- Forward update changes through all the balances
   PERFORM forwardupdateitemsite(pItemsiteId);
-  
+
   RETURN 1;
 END;
 $$ LANGUAGE 'plpgsql';

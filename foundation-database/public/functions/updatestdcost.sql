@@ -3,7 +3,7 @@ CREATE OR REPLACE FUNCTION updateStdCost(pItemcostid INTEGER,
                                          pOldcost NUMERIC,
                                          pDocNumber TEXT,
                                          pNotes TEXT) RETURNS BOOLEAN AS $$
--- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple. 
+-- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple.
 -- See www.xtuple.com/CPAL for the full text of the software license.
 DECLARE
     _itemcostid	INTEGER;
@@ -96,7 +96,7 @@ $$ LANGUAGE 'plpgsql';
 
 
 CREATE OR REPLACE FUNCTION updateStdCost(INTEGER, TEXT, BOOLEAN, NUMERIC) RETURNS INTEGER AS $$
--- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple. 
+-- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple.
 -- See www.xtuple.com/CPAL for the full text of the software license.
 DECLARE
     pItemid	ALIAS FOR $1;
@@ -129,7 +129,7 @@ BEGIN
 
     IF (NOT FOUND) AND (_newCost > 0) THEN
 	SELECT NEXTVAL('itemcost_itemcost_id_seq') INTO _itemcostid;
-	RAISE NOTICE 'updateStdCost() inserting itemcost_id %', _itemcostid;
+--	RAISE NOTICE 'updateStdCost() inserting itemcost_id %', _itemcostid;
 	INSERT INTO itemcost
 	    (itemcost_id, itemcost_item_id, itemcost_costelem_id,
 	     itemcost_lowlevel, itemcost_stdcost, itemcost_posted,

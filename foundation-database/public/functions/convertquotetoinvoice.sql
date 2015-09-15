@@ -14,8 +14,6 @@ DECLARE
   _blanketpos BOOLEAN := true;
   _showConvertedQuote BOOLEAN := false;
   _prospectid	INTEGER;
-  _charassid INTEGER := -1;
-  _c RECORD;  
   _r RECORD;
   _inNum TEXT;
 
@@ -194,10 +192,10 @@ BEGIN
   SELECT  'INV', _iheadid, charass_char_id,
           charass_value, charass_default, charass_price 
     FROM charass 
-    JOIN char ON (char_id=charass_char_id)
-    WHERE ( (char_invoices)
-      AND   (charass_target_type='QU')
-      AND   (charass_target_id=pQuheadid)); 
+    JOIN char    ON char_id = charass_char_id
+    JOIN charuse ON char_id = charuse_char_id AND charuse_target_type = 'INV'
+   WHERE charass_target_type = 'QU'
+     AND charass_target_id   = pQuheadid;
 
 -- Attachments on Invoice not supported but leaving this in for future use:
 /*

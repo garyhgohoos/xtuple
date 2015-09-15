@@ -65,7 +65,7 @@ BEGIN
       AND  (recv_id=precvid));
   ELSIF (_r.recv_order_type ='RA') THEN
     _ordertypeabbr := 'R/A for item ' || _r.item_number;
-    
+
     SELECT rahead_id AS orderhead_id, rahead_number AS orderhead_number, raitem_id AS orderitem_id,
            raitem_linenumber AS orderitem_linenumber,
 	   currToBase(rahead_curr_id, raitem_unitprice,
@@ -117,7 +117,7 @@ BEGIN
         (_r.itemsite_id = -1 OR _r.itemsite_id IS NULL OR _r.itemsite_controlmethod = 'N') ) THEN
 
     IF (_r.itemsite_id IS NOT NULL) THEN
-      SELECT insertGLTransaction( fetchJournalNumber('GL-MISC'), 
+      SELECT insertGLTransaction( fetchJournalNumber('GL-MISC'),
 				  'S/R', _r.recv_order_type, _o.orderhead_number,
 	  			  'Receive Non-Controlled Inventory from ' || _ordertypeabbr,
 				   costcat_liability_accnt_id,
@@ -140,7 +140,7 @@ BEGIN
       WHERE((poitem_expcat_id=expcat_id)
         AND (poitem_id=_o.orderitem_id));
     END IF;
-      
+
 
     IF (_tmp < 0 AND _tmp != -3) THEN -- error but not 0-value transaction
       RETURN _tmp;
@@ -148,7 +148,7 @@ BEGIN
       -- Posting to trial balance is deferred to prevent locking
       INSERT INTO itemlocpost ( itemlocpost_glseq, itemlocpost_itemlocseries)
       VALUES ( _tmp, _itemlocSeries );
-      
+
     END IF;
 
     SELECT insertGLTransaction( fetchJournalNumber('GL-MISC'),
@@ -180,12 +180,12 @@ BEGIN
 
   ELSEIF ( (_r.recv_order_type = 'RA') AND
            (_r.itemsite_id = -1 OR _r.itemsite_id IS NULL) ) THEN
-    RAISE NOTICE 'itemsite controlmethod is %, cannot post receipt.', _r.itemsite_controlmethod;
+    RAISE WARNING 'itemsite controlmethod is %, cannot post receipt.', _r.itemsite_controlmethod;
     RETURN -14;	-- otherwise how do we get the accounts?
 
   ELSEIF ( (_r.recv_order_type = 'TO') AND
            (_r.itemsite_id = -1 OR _r.itemsite_id IS NULL) ) THEN
-    RAISE NOTICE 'itemsite missing';
+    RAISE WARNING 'itemsite missing';
     RETURN -14;	-- otherwise how do we get the accounts?
 
   ELSE	-- not ELSIF: some code is shared between diff order types
@@ -282,7 +282,7 @@ BEGIN
         AND  (raitem_id=_r.recv_orderitem_id));
 
       IF (_r.itemsite_controlmethod = 'N') THEN
-        SELECT insertGLTransaction( fetchJournalNumber('GL-MISC'), 
+        SELECT insertGLTransaction( fetchJournalNumber('GL-MISC'),
                                     'S/R', _r.recv_order_type, _o.orderhead_number,
                                     'Receive Non-Controlled Inventory from ' || _ordertypeabbr,
                                     costcat_liability_accnt_id,
@@ -304,9 +304,9 @@ BEGIN
                             '',
                             'Receive Inventory from ' || _ordertypeabbr,
                             costcat_asset_accnt_id,
-                            CASE WHEN(COALESCE(_ra.raitem_cos_accnt_id, -1) != -1) THEN 
+                            CASE WHEN(COALESCE(_ra.raitem_cos_accnt_id, -1) != -1) THEN
                                   getPrjAccntId(_o.prj_id, _ra.raitem_cos_accnt_id)
-                                 WHEN (_ra.raitem_warranty) THEN 
+                                 WHEN (_ra.raitem_warranty) THEN
                                   getPrjAccntId(_o.prj_id, resolveCOWAccount(_r.itemsite_id, _ra.rahead_cust_id, _ra.rahead_saletype_id, _ra.rahead_shipzone_id))
                                  ELSE
                                   getPrjAccntId(_o.prj_id, resolveCORAccount(_r.itemsite_id, _ra.rahead_cust_id, _ra.rahead_saletype_id, _ra.rahead_shipzone_id))
@@ -320,7 +320,7 @@ BEGIN
           RAISE EXCEPTION 'Could not post inventory transaction: no cost category found for itemsite_id %', _r.itemsite_id;
         ELSIF (_tmp < -1) THEN -- less than -1 because -1 means it is a none controlled item
           IF(_tmp = -3) THEN
-            RAISE NOTICE 'The GL trans value was 0 which means we likely do not have a std cost';
+            RAISE WARNING 'The GL trans value was 0 which means we likely do not have a std cost';
             RETURN -12; -- The GL trans value was 0 which means we likely do not have a std cost
           END IF;
           RETURN _tmp;
@@ -368,8 +368,8 @@ BEGIN
       UPDATE raitem
       SET raitem_qtyreceived = (raitem_qtyreceived + _r.recv_qty)
       WHERE (raitem_id=_o.orderitem_id);
-      
--- Expire date doesn't mean anything once the RA is received 
+
+-- Expire date doesn't mean anything once the RA is received
 -- WARNING: INSERTING 'NULL' MIGHT CAUSE PROBLEMS!!
       UPDATE rahead
       SET rahead_expiredate = NULL
@@ -391,7 +391,7 @@ BEGIN
 
           IF (_ra.rahead_new_cohead_id IS NOT NULL) THEN
             _coheadid = _ra.rahead_new_cohead_id;
-          ELSE  
+          ELSE
 --  No header, so create a Sales Order header first.
             SELECT nextval('cohead_cohead_id_seq') INTO _coheadid;
 
@@ -430,8 +430,8 @@ BEGIN
               rahead_billtocity,rahead_billtostate,rahead_billtozip,
               rahead_billtocountry,NULL,'',rahead_commission, 'N', rahead_prj_id,
               COALESCE(cohead_shipcomplete,
-                CASE WHEN cust_partialship THEN 
-                  false 
+                CASE WHEN cust_partialship THEN
+                  false
                 ELSE true
                 END),rahead_curr_id,rahead_taxzone_id,rahead_saletype_id,rahead_shipzone_id
             FROM rahead
@@ -442,20 +442,20 @@ BEGIN
             WHERE (rahead_id=_ra.rahead_id);
 
             UPDATE rahead SET rahead_new_cohead_id=_coheadid WHERE rahead_id=_ra.rahead_id;
-            
+
           END IF;
-                  
+
 -- Now enter the line item(s)
         IF (_ra.raitem_disposition IN ('P','V')) AND
            (_ra.raitem_new_coitem_id IS NULL) AND
            (_ra.raitem_qtyauthorized > 0) THEN
-           
+
           SELECT nextval('coitem_coitem_id_seq') INTO _coitemid;
 
           SELECT COALESCE(MAX(coitem_linenumber),0)+1 INTO _linenumber
           FROM coitem
           WHERE (coitem_cohead_id=_coheadid);
-      
+
           INSERT INTO coitem (
             coitem_id,coitem_cohead_id,coitem_linenumber,coitem_itemsite_id,
             coitem_status,coitem_scheddate,coitem_promdate, coitem_qtyord,
@@ -477,7 +477,7 @@ BEGIN
 
           UPDATE raitem SET raitem_new_coitem_id=_coitemid WHERE (raitem_id=_ra.raitem_id);
         END IF;
-        
+
         -- Create items to ship that have no direct relation to receipts.
         IF (_ship) THEN
           FOR _i IN
@@ -492,7 +492,7 @@ BEGIN
             SELECT COALESCE(MAX(coitem_linenumber),0)+1 INTO _linenumber
               FROM coitem
             WHERE (coitem_cohead_id=_coheadid);
-      
+
             INSERT INTO coitem (
               coitem_id,coitem_cohead_id,coitem_linenumber,coitem_itemsite_id,
               coitem_status,coitem_scheddate,coitem_promdate, coitem_qtyord,
@@ -512,7 +512,7 @@ BEGIN
             FROM raitem
               JOIN itemsite ON (itemsite_id=raitem_itemsite_id)
             WHERE (raitem_id=_i.raitem_id);
-                        
+
             UPDATE raitem SET raitem_new_coitem_id=_coitemid WHERE (raitem_id=_i.raitem_id);
 
           END LOOP;
@@ -522,17 +522,17 @@ BEGIN
 
     ELSIF (_r.recv_order_type = 'TO' AND fetchMetricBool('MultiWhs')) THEN
       SELECT interWarehouseTransfer(toitem_item_id, tohead_trns_warehous_id,
-            tohead_dest_warehous_id, _r.recv_qty, 
+            tohead_dest_warehous_id, _r.recv_qty,
             'TO', formatToNumber(toitem_id), 'Receive from Transit To Dest Warehouse', _itemlocSeries, _glDate ) INTO _tmp
       FROM tohead, toitem
       WHERE ((tohead_id=toitem_tohead_id)
-        AND  (toitem_id=_r.recv_orderitem_id));     
+        AND  (toitem_id=_r.recv_orderitem_id));
 
       IF (_tmp < 0) THEN
 	    RETURN _tmp;
       END IF;
 
-      SELECT insertGLTransaction(fetchJournalNumber('GL-MISC'), 
+      SELECT insertGLTransaction(fetchJournalNumber('GL-MISC'),
 				  'S/R', _r.recv_order_type, _o.orderhead_number,
 				  'Receive Inventory Freight from ' || _o.orderhead_number || ' for item ' || _r.item_number,
 				   costcat_toliability_accnt_id,
@@ -572,7 +572,7 @@ BEGIN
   UPDATE recv
   SET recv_value=_recvvalue, recv_recvcost=_recvvalue / recv_qty, recv_posted=TRUE, recv_gldistdate=_glDate::DATE
   WHERE (recv_id=precvid);
-  
+
   IF (_r.recv_order_type = 'PO') THEN
     -- If this is a drop-shipped PO, then Issue the item to Shipping and Ship the item
     IF (_o.pohead_dropship = TRUE) THEN

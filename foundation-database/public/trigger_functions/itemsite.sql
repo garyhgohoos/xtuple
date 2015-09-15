@@ -1,5 +1,5 @@
 CREATE OR REPLACE FUNCTION _itemsiteTrigger () RETURNS TRIGGER AS $$
--- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple. 
+-- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple.
 -- See www.xtuple.com/CPAL for the full text of the software license.
 DECLARE
   _cmnttypeid INTEGER;
@@ -12,7 +12,7 @@ BEGIN
   SELECT item_type, item_number INTO _r
   FROM item
   WHERE (item_id=NEW.itemsite_item_id);
- 
+
 -- Override values to avoid invalid data combinations
   IF (_r.item_type IN ('J','R','S')) THEN
     NEW.itemsite_planning_type := 'N';
@@ -133,7 +133,7 @@ SELECT dropIfExists('trigger', 'itemsiteTrigger');
 CREATE TRIGGER itemsiteTrigger BEFORE INSERT OR UPDATE ON itemsite FOR EACH ROW EXECUTE PROCEDURE _itemsiteTrigger();
 
 CREATE OR REPLACE FUNCTION _itemsiteAfterTrigger () RETURNS TRIGGER AS $$
--- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple. 
+-- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple.
 -- See www.xtuple.com/CPAL for the full text of the software license.
 DECLARE
   _state INTEGER;
@@ -218,7 +218,7 @@ BEGIN
     IF ( NOT checkPrivilege('MaintainItemSites') ) THEN
        RAISE EXCEPTION 'You do not have privileges to maintain Item Sites.';
     END IF;
-    
+
 -- Override values to avoid invalid data combinations
     IF (NOT NEW.itemsite_posupply) THEN
       UPDATE itemsite SET
@@ -256,7 +256,7 @@ BEGIN
         itemsite_useparamsmanual = FALSE
       WHERE (itemsite_id = NEW.itemsite_id);
     END IF;
-    
+
 -- Integrity check
 
     -- Both insert and update
@@ -284,7 +284,7 @@ BEGIN
     END IF;
 
     IF (TG_OP = 'UPDATE') THEN
-  
+
 -- Integrity check
       IF (NOT OLD.itemsite_loccntrl AND NEW.itemsite_loccntrl) THEN
         IF (SELECT count(*)=0
@@ -300,16 +300,16 @@ BEGIN
 		          multiply located.';
         END IF;
       END IF;
-   
--- Update detail records based on control method changes 
+
+-- Update detail records based on control method changes
       _wasLocationControl := OLD.itemsite_loccntrl;
       _isLocationControl := NEW.itemsite_loccntrl;
       _wasLotSerial := OLD.itemsite_controlmethod IN ('S','L');
-      _isLotSerial := NEW.itemsite_controlmethod IN ('S','L'); 
+      _isLotSerial := NEW.itemsite_controlmethod IN ('S','L');
       _wasPerishable := OLD.itemsite_perishable;
       _isPerishable := NEW.itemsite_perishable;
       _state := 0;
-    
+
       IF ( (_wasLocationControl) AND (_isLocationControl) ) THEN
         _state := 10;
       ELSIF ( (NOT _wasLocationControl) AND (NOT _isLocationControl) ) THEN
@@ -344,9 +344,6 @@ BEGIN
       ELSIF (_state IN (14, 34)) THEN
         PERFORM consolidateLocations(OLD.itemsite_id);
       ELSIF (_state IN (24, 42, 44)) THEN
-
-        RAISE NOTICE 'Deleting item site detail records,';
-
         DELETE FROM itemloc
         WHERE (itemloc_itemsite_id=OLD.itemsite_id);
       END IF;
@@ -355,7 +352,7 @@ BEGIN
 --  Handle detail creation
 --  Create itemloc records if they do not exist
        IF (_state IN (23, 32, 33)) THEN
-          INSERT INTO itemloc 
+          INSERT INTO itemloc
             ( itemloc_itemsite_id, itemloc_location_id,
               itemloc_expiration, itemloc_qty )
             VALUES
@@ -382,9 +379,9 @@ BEGIN
 
 --  Handle Lot/Serial distribution
         IF ( (_state = 13) OR (_state = 23) OR (_state = 33) OR (_state = 43) ) THEN
-          RAISE NOTICE 'You should now use the Reassign Lot/Serial # window to assign Lot/Serial #s.';
+          RAISE WARNING 'You should now use the Reassign Lot/Serial # window to assign Lot/Serial #s.';
         END IF;
-      END IF;  
+      END IF;
       IF (OLD.itemsite_costmethod='A' AND NEW.itemsite_costmethod='S') THEN
         -- TODO: Average costing cost method change
         SELECT stdcost(NEW.itemsite_item_id) * NEW.itemsite_qtyonhand
@@ -417,7 +414,7 @@ BEGIN
         WHERE (planord_itemsite_id=NEW.itemsite_id);
       END IF;
     END IF;
-    
+
   END IF;  -- End Maintenance
 
   RETURN NEW;

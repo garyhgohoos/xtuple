@@ -1,5 +1,5 @@
 CREATE OR REPLACE FUNCTION formatACHChecks(INTEGER, INTEGER, TEXT) RETURNS SETOF achline AS $$
--- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple. 
+-- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple.
 -- See www.xtuple.com/CPAL for the full text of the software license.
 DECLARE
   pbankaccntid     ALIAS FOR $1;   -- all unprinted checks for this bankaccnt
@@ -53,7 +53,7 @@ BEGIN
   ELSIF (NOT _bank.bankaccnt_ach_enabled) THEN
     RAISE EXCEPTION 'Cannot format the ACH file because the Bank Account % is not configured for ACH transactions.',
       _bank.bankaccnt_name;
-  ELSIF (LENGTH(COALESCE(_bank.bankaccnt_routing, '')) <= 0) THEN 
+  ELSIF (LENGTH(COALESCE(_bank.bankaccnt_routing, '')) <= 0) THEN
     RAISE EXCEPTION 'Cannot format the ACH file because the Bank Account % has no routing number.',
       _bank.bankaccnt_name;
   END IF;
@@ -131,10 +131,10 @@ BEGIN
     ELSE
       _sec := 'CCD';
       IF (_check.crmacct_id IS NULL) THEN
-        RAISE NOTICE 'Vendor % does not have a corresponding crmacct record.',
+        RAISE WARNING 'Vendor % does not have a corresponding crmacct record.',
                      _check.checkhead_recip_id;
       ELSIF (_check.crmacct_type IS NULL) THEN
-        RAISE NOTICE 'crmacct for vendor % does not have a valid crmacct_type.',
+        RAISE WARNING 'crmacct for vendor % does not have a valid crmacct_type.',
                      _check.checkhead_recip_id;
       END IF;
     END IF;

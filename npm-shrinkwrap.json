@@ -1,6 +1,6 @@
 {
   "name": "xtuple",
-  "version": "4.9.0-beta",
+  "version": "4.9.1",
   "dependencies": {
     "async": {
       "version": "0.2.10",

@@ -1,24 +1,24 @@
 CREATE OR REPLACE FUNCTION correctProduction(INTEGER, NUMERIC, BOOLEAN, BOOLEAN) RETURNS INTEGER AS $$
--- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple. 
+-- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple.
 -- See www.xtuple.com/CPAL for the full text of the software license.
 BEGIN
-  RAISE NOTICE 'correctProduction(INTEGER, NUMERIC, BOOLEAN, BOOLEAN) has been deprecated. Use corrrectProduction(INTEGER, NUMERIC, BOOLEAN, INTEGER) or a package-specific version instead.';
+  RAISE WARNING 'correctProduction(INTEGER, NUMERIC, BOOLEAN, BOOLEAN) has been deprecated. Use corrrectProduction(INTEGER, NUMERIC, BOOLEAN, INTEGER) or a package-specific version instead.';
   RETURN  correctProduction($1, $2, $3, 0, now());
 END;
 $$ LANGUAGE 'plpgsql';
 
 
 CREATE OR REPLACE FUNCTION correctProduction(INTEGER, NUMERIC, BOOLEAN, BOOLEAN, INTEGER) RETURNS INTEGER AS $$
--- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple. 
+-- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple.
 -- See www.xtuple.com/CPAL for the full text of the software license.
 BEGIN
-  RAISE NOTICE 'correctProduction(INTEGER, NUMERIC, BOOLEAN, BOOLEAN, INTEGER) has been deprecated. Use corrrectProduction(INTEGER, NUMERIC, BOOLEAN, INTEGER) or a package-specific version instead.';
+  RAISE WARNING 'correctProduction(INTEGER, NUMERIC, BOOLEAN, BOOLEAN, INTEGER) has been deprecated. Use corrrectProduction(INTEGER, NUMERIC, BOOLEAN, INTEGER) or a package-specific version instead.';
   RETURN correctProduction($1, $2, $3, $5, now());
 END;
 $$ LANGUAGE 'plpgsql';
 
 CREATE OR REPLACE FUNCTION correctProduction(INTEGER, NUMERIC, BOOLEAN, INTEGER, TIMESTAMP WITH TIME ZONE) RETURNS INTEGER AS $$
--- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple. 
+-- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple.
 -- See www.xtuple.com/CPAL for the full text of the software license.
 DECLARE
   pWoid          ALIAS FOR $1;
@@ -32,7 +32,7 @@ END;
 $$ LANGUAGE 'plpgsql';
 
 CREATE OR REPLACE FUNCTION correctProduction(INTEGER, NUMERIC, BOOLEAN, INTEGER, TIMESTAMP WITH TIME ZONE, INTEGER) RETURNS INTEGER AS $$
--- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple. 
+-- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple.
 -- See www.xtuple.com/CPAL for the full text of the software license.
 DECLARE
   pWoid          ALIAS FOR $1;
@@ -70,7 +70,7 @@ BEGIN
     FROM wo JOIN itemsite ON (itemsite_id=wo_itemsite_id)
             JOIN item ON (item_id=itemsite_item_id)
    WHERE (wo_id=pWoid);
-  
+
   IF (_status != 'I') THEN
     RETURN -1;
   END IF;
@@ -85,7 +85,7 @@ BEGIN
     _itemlocSeries := pItemlocSeries;
   END IF;
 
-  --  Calculate the WIP to correct 
+  --  Calculate the WIP to correct
   SELECT CASE WHEN (wo_cosmethod = 'D') THEN wo_postedvalue
               ELSE  round(((wo_postedvalue - wo_wipvalue) / wo_qtyrcv * _parentQty), 2)
          END INTO _wipPost
@@ -120,7 +120,7 @@ BEGIN
     FOR _r IN SELECT item_id, item_fractional,
                       itemsite_id, itemsite_warehous_id,
                       itemsite_controlmethod, itemsite_loccntrl,
-                      itemsite_costmethod, 
+                      itemsite_costmethod,
                       wo_qtyrcv, wo_prj_id,
                       womatl_id, womatl_qtyfxd, womatl_qtyper,
                       womatl_scrap, womatl_issuemethod, womatl_uom_id
@@ -136,7 +136,7 @@ BEGIN
       ELSE
         _qtyfxd := _r.womatl_qtyfxd;
       END IF;
-      
+
       _qty = roundQty(_r.item_fractional, (_qtyfxd + _parentQty * _r.womatl_qtyper) * (1 + _r.womatl_scrap));
 
       IF (_qty > 0) THEN
@@ -147,34 +147,34 @@ BEGIN
 
   	--  BEGIN ROB Decrease this W/O's WIP value for custom costing
 	  UPDATE wo
-	  SET wo_wipvalue = (wo_wipvalue - (itemcost_stdcost * _parentQty)) 
+	  SET wo_wipvalue = (wo_wipvalue - (itemcost_stdcost * _parentQty))
 	FROM costelem, itemcost, costcat, itemsite, item
-	WHERE 
+	WHERE
 	  ((wo_id=pWoid) AND
 	  (wo_itemsite_id=itemsite_id) AND
 	  (itemsite_item_id=item_id) AND
 	  (costelem_id = itemcost_costelem_id) AND
 	  (itemcost_item_id = itemsite_item_id) AND
 	  (itemsite_costcat_id = costcat_id) AND
-	  (costelem_exp_accnt_id) IS NOT NULL  AND 
+	  (costelem_exp_accnt_id) IS NOT NULL  AND
 	  (costelem_sys = false));
 
 	--  ROB Distribute to G/L - create Cost Variance, debit WIP
 	  PERFORM insertGLTransaction( 'W/O', 'WO', formatwonumber(pWoid),
 				       ('Correct Post Other Cost ' || item_number || ' ' || _sense || ' Manufacturing'),
-				       getPrjAccntId(wo_prj_id, costelem_exp_accnt_id), 
+				       getPrjAccntId(wo_prj_id, costelem_exp_accnt_id),
 				       getPrjAccntId(wo_prj_id, costcat_wip_accnt_id), _invhistid,
 				       ((itemcost_stdcost * _parentQty)* -1),
 				       CURRENT_DATE )
 	FROM wo, costelem, itemcost, costcat, itemsite, item
-	WHERE 
+	WHERE
 	  ((wo_id=pWoid) AND
 	  (wo_itemsite_id=itemsite_id) AND
 	  (itemsite_item_id=item_id) AND
 	  (costelem_id = itemcost_costelem_id) AND
 	  (itemcost_item_id = itemsite_item_id) AND
 	  (itemsite_costcat_id = costcat_id) AND
-	  (costelem_exp_accnt_id) IS NOT NULL  AND 
+	  (costelem_exp_accnt_id) IS NOT NULL  AND
 	  (costelem_sys = false));
 	--End ROB
 

@@ -99,7 +99,7 @@ BEGIN
       END IF;
       _subnumber := _subnumber + 1;
       _coitemid = nextval('coitem_coitem_id_seq');
-      raise notice 'coitem id: %',_coitemid;
+
       INSERT INTO coitem
             (coitem_id, coitem_cohead_id,
              coitem_linenumber, coitem_subnumber,

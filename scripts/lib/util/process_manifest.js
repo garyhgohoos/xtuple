@@ -37,7 +37,7 @@ regexp:true, undef:true, strict:true, trailing:true, white:true */
     // This is all in an in-betweensy state. The idea was to use npm more for our extensions, which means
     // putting extension metadata in package.json instead of manifest.js. This is a work in progress.
     //
-    var isPackageJson = !!options.engines; // XXX this is a pretty rough proxy
+    var isPackageJson = options.xTupleExtensionType === "package";
     var dependencies = (isPackageJson ? _.omit(options.peerDependencies, "xtuple") : options.dependencies) || [];
     _.each(dependencies, function (dependency) {
       var dependencySql = "select xt.register_extension_dependency('%@', '%@');\n"
@@ -99,6 +99,7 @@ regexp:true, undef:true, strict:true, trailing:true, white:true */
 
     if (options.extensionPath && fs.existsSync(path.resolve(options.extensionPath, "package.json"))) {
       packageJson = require(path.resolve(options.extensionPath, "package.json"));
+      packageJson.xTupleExtensionType = "package";
     }
     //
     // Step 1:
@@ -127,6 +128,7 @@ regexp:true, undef:true, strict:true, trailing:true, white:true */
 
       try {
         manifest = JSON.parse(manifestString);
+        manifest.xTupleExtensionType = "manifest";
         databaseScripts = manifest.databaseScripts;
         defaultSchema = manifest.defaultSchema;
         parsingExpressionGrammars = manifest.parsingExpressionGrammars ? manifest.parsingExpressionGrammars : [];
@@ -309,7 +311,7 @@ regexp:true, undef:true, strict:true, trailing:true, white:true */
             scriptCallback("Error: " + fullFilename + " contents do not end in a semicolon.");
           }
 
-          scriptCallback(null, '\n' + scriptContents);
+          scriptCallback(null, "\n" + "-- Script File Location: " + fullFilename + "\n" + scriptContents);
         });
       };
       async.mapSeries(databaseScripts || [], getScriptSql, function (err, scriptSql) {
@@ -322,7 +324,6 @@ regexp:true, undef:true, strict:true, trailing:true, white:true */
         }
 
         composeExtensionSql(scriptSql, packageJson || manifest, options, manifestCallback);
-
       });
       //
       // End script installation code

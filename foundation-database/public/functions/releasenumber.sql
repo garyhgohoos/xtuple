@@ -39,7 +39,7 @@ BEGIN
       _select := 'SELECT ' || quote_ident(_numcol) ||
 	         ' FROM '  || _table ||
 	         ' WHERE (' || quote_ident(_numcol) || '=' || quote_literal(_number - 1) || ');';
-    END IF;                 
+    END IF;
 
     EXECUTE _select INTO _test;
 
@@ -74,7 +74,7 @@ BEGIN
       SET orderseq_number = (_number - 1)
       WHERE (orderseq_name=psequence);
     ELSE
-      RAISE NOTICE 'cannot update orderseq';
+      RAISE WARNING 'cannot update orderseq';
     END IF;
   END IF;
 

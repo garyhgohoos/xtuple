@@ -1,6 +1,6 @@
 
 CREATE OR REPLACE FUNCTION importBankrecCleared(pBankrecid INTEGER) RETURNS INTEGER AS $$
--- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple. 
+-- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple.
 -- See www.xtuple.com/CPAL for the full text of the software license.
 DECLARE
   _bankrecid INTEGER;
@@ -57,7 +57,7 @@ BEGIN
     -- TODO add support for Project Accounting (sltrans)
 
     IF ( (_r.debit > 0.0) AND (_r.credit > 0.0) ) THEN
-      RAISE NOTICE 'Bankrecimport % cannot determine if debit or credit', _r.bankrecimport_reference;
+      RAISE WARNING 'Bankrecimport % cannot determine if debit or credit', _r.bankrecimport_reference;
       CONTINUE;
     END IF;
 

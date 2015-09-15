@@ -3,7 +3,7 @@
 CREATE OR REPLACE FUNCTION formatabachecks(integer, integer, text)
   RETURNS SETOF achline AS
 $BODY$
--- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple. 
+-- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple.
 -- See www.xtuple.com/CPAL for the full text of the software license.
 DECLARE
   pbankaccntid     ALIAS FOR $1;   -- all unprinted checks for this bankaccnt
@@ -50,7 +50,7 @@ BEGIN
   ELSIF (NOT _bank.bankaccnt_ach_enabled) THEN
     RAISE EXCEPTION 'Cannot format the ABA file because the Bank Account % is not configured for ABA transactions.',
       _bank.bankaccnt_name;
-  ELSIF (LENGTH(COALESCE(_bank.bankaccnt_routing, '')) <= 0) THEN 
+  ELSIF (LENGTH(COALESCE(_bank.bankaccnt_routing, '')) <= 0) THEN
     RAISE EXCEPTION 'Cannot format the ABA file because the Bank Account % has no BSB number.', _bank.bankaccnt_name;
   END IF;
 
@@ -79,14 +79,14 @@ BEGIN
   ELSE
     _bank.bankaccnt_ach_lastfileid = CHR(ASCII(_bank.bankaccnt_ach_lastfileid) + 1);
   END IF;
-  
+
 
   _row.achline_checkhead_id := NULL;
   _row.achline_batch := _filenum;
   _row.achline_type := 'HEADER';
   _row.achline_value := RPAD(
     RPAD('0',18)                                    -- Record Type 0 blank filled with 17 spaces
-    || '01'                                         -- Reel sequence number 
+    || '01'                                         -- Reel sequence number
     || RPAD(_bank.bankaccnt_bankname,3)             -- Approved financial instition abbreviation.
     || RPAD('',7)                                   -- blank filled
     || RPAD(fetchMetricText('ACHCompanyName'), 26)  -- Name of user supplying ABA file
@@ -125,10 +125,10 @@ BEGIN
     -- Although a crmacct record is not required for used in this function
     -- this code is retained for consistancy with the original formatachchecks function.
     IF (_check.crmacct_id IS NULL) THEN
-      RAISE NOTICE 'Vendor % does not have a corresponding crmacct record.',
+      RAISE WARNING 'Vendor % does not have a corresponding crmacct record.',
         _check.checkhead_recip_id;
     ELSIF (_check.crmacct_type IS NULL) THEN
-      RAISE NOTICE 'crmacct for vendor % does not have a valid crmacct_type.',
+      RAISE WARNING 'crmacct for vendor % does not have a valid crmacct_type.',
          _check.checkhead_recip_id;
     END IF;
 
@@ -150,7 +150,7 @@ BEGIN
       setbytea(penckey), 'bf');
     _check.vend_ach_accntnumber   := decrypt(setbytea(_check.vend_ach_accntnumber),
       setbytea(penckey), 'bf');
-    
+
     -- Check the BSB number is in the right format and then re-format for output.
     -- Valid format is \d{3}-\d{3}|\d{6}000
     IF (formatbytea(_check.vend_ach_routingnumber) ~ E'^(\\d{3})(?:-(?=\\d{3}$)|(?=\\d{3}0{3}$))(\\d{3})(0{3})?$') THEN
@@ -169,7 +169,7 @@ BEGIN
     _totaldb      := _totaldb + _check.checkhead_amount;                -- Total debits for balancing entry
     _detailcount  := _detailcount + 1;                                  -- Detail record counter (type 1)
     _totalcr      := _totalcr + _check.checkhead_amount;                -- Total credits from payments
-                                                                        
+
     _row.achline_value := RPAD('1'                                      -- record type 1
       || _vendbsb                                                       -- vendor BSB #
       || LPAD(formatbytea(_check.vend_ach_accntnumber), 9)              -- vendor account no.
@@ -204,7 +204,7 @@ BEGIN
     RAISE EXCEPTION 'Cannot write an ABA file for % because the total credits: % does not equal the total debits: %, file will not balance.',
     _bank.bankaccnt_name, _totalcr, _totaldb;
   END IF;
-  
+
 
   _detailcount := _detailcount + 1;
   _row.achline_checkhead_id := NULL;
@@ -219,7 +219,7 @@ BEGIN
     || '13'                                               -- transaction code
     || to_char(_totaldb,'FM09999999V99')                  -- the balancing amount
     || RPAD(fetchMetricText('ACHCompanyName'),   32)      -- company name
-    || RPAD('DIRECT DEPOSIT',18)                          
+    || RPAD('DIRECT DEPOSIT',18)
     || _bank.bankaccnt_routing                            -- Austalian BSB #
     || RPAD(_bank.bankaccnt_accntnumber, 9)               -- company account number
     || RPAD(fetchMetricText('ACHCompanyName'), 16)        -- company account name

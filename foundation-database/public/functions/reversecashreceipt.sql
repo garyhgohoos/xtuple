@@ -1,5 +1,5 @@
 CREATE OR REPLACE FUNCTION reverseCashReceipt(INTEGER, INTEGER) RETURNS INTEGER AS $$
--- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple. 
+-- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple.
 -- See www.xtuple.com/CPAL for the full text of the software license.
 DECLARE
   pCashrcptid ALIAS FOR $1;
@@ -75,7 +75,7 @@ BEGIN
       IF (NOT FOUND) THEN
         RETURN -8;
       ELSE
-        RAISE NOTICE 'PostCashReceipt() found ccpay_id % for order number %/% (ref 8848).',
+        RAISE WARNING 'PostCashReceipt() found ccpay_id % for order number %/% (ref 8848).',
                       _ccpayid, pCashrcptid, _p.cashrcpt_docnumber;
       END IF;
     END IF;
@@ -136,24 +136,24 @@ BEGIN
   FOR _r IN SELECT aropen_id, aropen_doctype, aropen_docnumber, aropen_docdate,
                    aropen_duedate, aropen_curr_id, aropen_curr_rate,
                    round(aropen_amount - aropen_paid, 2) <=
-                      round(aropen_paid + 
+                      round(aropen_paid +
                       currToCurr(_p.cashrcpt_curr_id, aropen_curr_id,abs(cashrcptitem_amount + cashrcptitem_discount),_p.cashrcpt_distdate),2)
                                AS closed,
                    cashrcptitem_id, cashrcptitem_amount, cashrcptitem_discount,
                    (cashrcptitem_amount / _p.cashrcpt_curr_rate) AS cashrcptitem_amount_base,
                    (cashrcptitem_discount / _p.cashrcpt_curr_rate) AS cashrcptitem_discount_base,
-                   round(aropen_paid - 
+                   round(aropen_paid -
                       currToCurr(_p.cashrcpt_curr_id, aropen_curr_id,abs(cashrcptitem_amount),_p.cashrcpt_distdate),2) AS new_paid,
                    round(currToCurr(_p.cashrcpt_curr_id, aropen_curr_id,abs(cashrcptitem_discount),_p.cashrcpt_distdate),2) AS new_discount
             FROM cashrcptitem JOIN aropen ON (cashrcptitem_aropen_id=aropen_id)
             WHERE ((cashrcptitem_cashrcpt_id=pCashrcptid)
               AND (cashrcptitem_applied)) LOOP
 
---  Handle discount 
+--  Handle discount
     IF (_r.cashrcptitem_discount_base > 0) THEN
       PERFORM reverseCashReceiptDisc(_r.cashrcptitem_id, pJournalNumber);
     END IF;
-     
+
 --  Update the aropen item to post the paid amount
     UPDATE aropen
     SET aropen_paid = _r.new_paid - _r.new_discount,
@@ -206,7 +206,7 @@ BEGIN
     PERFORM insertIntoGLSeries( _sequence, 'A/R', 'CR',
                         (_r.aropen_doctype || '-' || _r.aropen_docnumber),
                         CASE WHEN _r.aropen_doctype != 'R' THEN _arAccntid
-                        ELSE findDeferredAccount(_p.cashrcpt_cust_id) END, 
+                        ELSE findDeferredAccount(_p.cashrcpt_cust_id) END,
                         (round(_r.cashrcptitem_amount_base + _exchGain, 2) * -1.0),
                         _p.cashrcpt_distdate, _p.custnote );
 
@@ -249,7 +249,7 @@ BEGIN
       -1, 'Misc.', '',
       _p.cashrcpt_fundstype, _p.cashrcpt_docnumber,
       (round(_r.cashrcptmisc_amount, 2) * -1.0), TRUE,
-      CURRENT_DATE, _p.cashrcpt_distdate, pJournalNumber, getEffectiveXtUser(), 
+      CURRENT_DATE, _p.cashrcpt_distdate, pJournalNumber, getEffectiveXtUser(),
       _p.cashrcpt_curr_id, 'CRD', _r.cashrcptmisc_id );
 
     PERFORM insertIntoGLSeries( _sequence, 'A/R', 'CR', _r.cashrcptmisc_notes,
