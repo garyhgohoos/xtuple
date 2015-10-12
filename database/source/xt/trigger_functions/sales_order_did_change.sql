@@ -6,7 +6,7 @@ return (function () {
 
    var data = Object.create(XT.Data),
      sqlUpdate = "update quhead set quhead_status = 'C' where quhead_id=$1",
-     sqlDelete = "perform deletequote($1);",
+     sqlDelete = "select deletequote($1);",
      sql,
      orm,
      id,

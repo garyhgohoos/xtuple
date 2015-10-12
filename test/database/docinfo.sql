@@ -44,7 +44,7 @@ var _ = require("underscore"),
     });
 
     it('should be retrievable from the function', function (done) {
-      var sql = "select * from _docinfo();";
+      var sql = "select * from _docinfo((select docass_source_id from docass order by docass_id limit 1), (select docass_source_type from docass order by docass_id limit 1));";
       creds.database = databaseName;
       datasource.query(sql, creds, function (err, res) {
         assert.isNull(err);

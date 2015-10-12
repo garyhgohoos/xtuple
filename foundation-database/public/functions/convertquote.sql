@@ -112,7 +112,7 @@ BEGIN
     cohead_fob, cohead_shipvia,
     cohead_ordercomments, cohead_shipcomments,
     cohead_freight, cohead_misc, cohead_misc_accnt_id, cohead_misc_descrip,
-    cohead_holdtype, cohead_wasquote, cohead_quote_number, cohead_prj_id,
+    cohead_holdtype, cohead_quote_number, cohead_prj_id,
     cohead_curr_id, cohead_taxzone_id, cohead_taxtype_id,
     cohead_shipto_cntct_id, cohead_shipto_cntct_honorific, cohead_shipto_cntct_first_name,
     cohead_shipto_cntct_middle, cohead_shipto_cntct_last_name, cohead_shipto_cntct_suffix,
@@ -139,7 +139,7 @@ BEGIN
          quhead_fob, quhead_shipvia,
          quhead_ordercomments, quhead_shipcomments,
          quhead_freight, quhead_misc, quhead_misc_accnt_id, quhead_misc_descrip,
-         'N', TRUE, quhead_number, quhead_prj_id,
+         'N', quhead_number, quhead_prj_id,
 	 quhead_curr_id, quhead_taxzone_id, quhead_taxtype_id,
 	 quhead_shipto_cntct_id, quhead_shipto_cntct_honorific,
 	 quhead_shipto_cntct_first_name, quhead_shipto_cntct_middle, quhead_shipto_cntct_last_name,
@@ -293,6 +293,10 @@ BEGIN
 
   SELECT metric_value INTO _showConvertedQuote
   FROM metric WHERE metric_name = 'ShowQuotesAfterSO';
+
+  -- bug 26513 - mobilized databases delete the quote in a cohead trigger when cohead_wasquote
+  -- on INSERT. set the flag late, otherwise quitems may be removed before they can be copied
+  UPDATE cohead SET cohead_wasquote = TRUE WHERE cohead_id = _soheadid;
 
   IF (_showConvertedQuote) THEN
     UPDATE quhead

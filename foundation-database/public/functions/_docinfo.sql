@@ -1,4 +1,4 @@
-CREATE OR REPLACE FUNCTION _docinfo() RETURNS SETOF _docinfo AS $f$
+CREATE OR REPLACE FUNCTION _docinfo(req_id integer, req_type text) RETURNS SETOF _docinfo AS $f$
 -- Copyright (c) 1999-2015 by OpenMFG LLC, d/b/a xTuple.
 -- See www.xtuple.com/CPAL for the full text of the software license.
 -- Return all document associations, optionally limited to the given document type
@@ -23,6 +23,8 @@ DECLARE
                            FROM docass JOIN %s ON docass_target_id = %s
                            %s %s
                           WHERE docass_target_type = '%s'
+                            AND docass_source_id = %s
+                            AND docass_source_type = '%s'
                          UNION ALL
                          SELECT docass_id AS id,
                                 revnumber AS target_number,
@@ -40,49 +42,61 @@ DECLARE
                            JOIN rev ON revid = docass_source_id AND revtype = docass_source_type
                            %s
                           WHERE docass_target_type = '%s'
+                            AND docass_source_id = %s
+                            AND docass_source_type = '%s'
                        $$;
+  _imgQ         TEXT := $$SELECT imageass_id AS id,
+                                 image_id::text AS target_number,
+                                 'IMG' AS target_type,
+                                 imageass_image_id AS target_id,
+                                 imageass_source AS source_type,
+                                 imageass_source_id AS source_id,
+                                 image_name AS name, image_descrip AS description,
+                                 imageass_purpose AS purpose
+                          FROM imageass
+                          JOIN image ON imageass_image_id=image_id
+                          WHERE true
+                            AND imageass_source_id = %s
+                            AND imageass_source = '%s'
+                         $$;
+  _urlQ         TEXT := $$SELECT url_id AS id,
+                                 url_id::text AS target_number,
+                                 'URL' AS target_type,
+                                 url_id AS target_id,
+                                 url_source AS source_type,
+                                 url_source_id AS source_id,
+                                 url_title AS name, url_url AS description,
+                                 'S' AS doc_purpose
+                           FROM url
+                           WHERE (url_stream IS NULL)
+                             AND url_source_id = %s
+                             AND url_source = '%s'
+                        $$;
+  _fileQ        TEXT := $$SELECT url_id AS id,
+                                 url_id::text AS target_number,
+                                 'FILE' AS target_type,
+                                 url_id AS target_id,
+                                 url_source AS source_type,
+                                 url_source_id AS source_id,
+                                 url_title AS name, url_url AS description,
+                                 'S' AS doc_purpose
+                          FROM url
+                          WHERE (url_stream IS NOT NULL)
+                            AND url_source_id = %s
+                            AND url_source = '%s'
+                        $$;
 
   _crmIdField       TEXT := '';
   _crmChildIdField  TEXT := '';
 BEGIN
   -- TODO: normalize image, url, and file into docass
-  _current := $$SELECT imageass_id AS id,
-                       image_id::text AS target_number,
-                       'IMG' AS target_type,
-                       imageass_image_id AS target_id,
-                       imageass_source AS source_type,
-                       imageass_source_id AS source_id,
-                       image_name AS name, image_descrip AS description,
-                       imageass_purpose AS purpose
-                  FROM imageass
-                  JOIN image ON imageass_image_id=image_id
-              $$;
+  _current := _current || format(_imgQ, req_id, req_type);
+  _current := _current || ' UNION ALL ' || format(_urlQ, req_id, req_type);
+  _current := _current || ' UNION ALL ' || format(_fileQ, req_id, req_type);
 
-  _current := _current || ' UNION ALL ' ||
-              $$SELECT url_id AS id,
-                       url_id::text AS target_number,
-                       'URL' AS target_type,
-                       url_id AS target_id,
-                       url_source AS source_type,
-                       url_source_id AS source_id,
-                       url_title AS name, url_url AS description,
-                       'S' AS doc_purpose
-                  FROM url
-                 WHERE (url_stream IS NULL)
-              $$;
-
-  _current := _current || ' UNION ALL ' ||
-              $$SELECT url_id AS id,
-                       url_id::text AS target_number,
-                       'FILE' AS target_type,
-                       url_id AS target_id,
-                       url_source AS source_type,
-                       url_source_id AS source_id,
-                       url_title AS name, url_url AS description,
-                       'S' AS doc_purpose
-                  FROM url
-                 WHERE (url_stream IS NOT NULL)
-              $$;
+  SELECT source.* INTO _crm
+    FROM source
+   WHERE source_docass = 'CRMA';   -- must match populate_source.sql
 
   SELECT source.* INTO _crm
     FROM source
@@ -111,10 +125,12 @@ BEGIN
                        _desc.source_desc_field,   _desc.source_table,
                        _desc.source_key_field,    _desc.source_joins,
                        '',                        _desc.source_docass,
+                       req_id,                    req_type,
                        'docass_source_type',      'docass_source_id',
                        'docass_target_type',      'docass_target_id',
                        _desc.source_table,        _desc.source_key_field,
-                       _desc.source_joins,        _desc.source_docass);
+                       _desc.source_joins,        _desc.source_docass,
+                       req_id,                    req_type);
 
     -- must match populate_source.sql
     IF _desc.source_docass IN ('C', 'V', 'EMP', 'PSPCT', 'SR', 'USR', 'TAXAUTH')  THEN
@@ -142,11 +158,13 @@ BEGIN
                          _desc.source_key_field,    _desc.source_joins,
                          format('JOIN crmacct ON %s = %s', _crmIdField, _crmChildIdField),
                          _desc.source_docass,
+                         req_id,                    req_type,
                          'docass_source_type',      'docass_source_id',
                          '$$' || _crm.source_docass || '$$', _crm.source_key_field,
                          _desc.source_table,               _desc.source_key_field,
                          format('JOIN crmacct ON %s = %s', _crmIdField, _crmChildIdField),
-                         _desc.source_docass);
+                         _desc.source_docass,
+                         req_id,                    req_type);
 
     END IF;
   END LOOP;
@@ -158,5 +176,5 @@ BEGIN
   END LOOP;
 
   RETURN;
-END
+END;
 $f$ LANGUAGE plpgsql;

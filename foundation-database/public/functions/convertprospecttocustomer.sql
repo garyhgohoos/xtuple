@@ -82,7 +82,7 @@ BEGIN
     salesrep_commission,
     0,
     false,
-    FetchMetricValue('DefaultShipChrgId'),
+    COALESCE(FetchMetricValue('DefaultShipChrgId'), -1),
     false,
     false,
     false,

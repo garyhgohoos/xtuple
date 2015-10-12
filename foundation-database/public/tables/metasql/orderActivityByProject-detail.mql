@@ -500,25 +500,17 @@ SELECT cohead_id AS id,
        3 AS section,
        <? value("sos") ?> AS section_qtdisplayrole,
        cohead_number::text AS name,
-      COALESCE((SELECT 
-                  CASE WHEN (coitem_status = 'O') THEN
-                    <? value("open") ?>
-                       WHEN (coitem_status = 'C') THEN
-                    <? value("closed" ?>
-                      ELSE
-                    <? value("canceled") ?>
-                  END
-                FROM 
-               (SELECT coitem_status,
-                   CASE 
-                     WHEN (coitem_status = 'O') THEN 1
-                     WHEN (coitem_status = 'C') then 2
-                     ELSE  3
-                  END AS type
-                  FROM coitem
-                 WHERE (coitem_cohead_id=cohead_id)
-                 ORDER BY type
-                 LIMIT 1) AS sts) ,'O')
+       COALESCE((SELECT CASE coitem_status WHEN 'O' THEN <? value("open") ?>
+                                           WHEN 'C' THEN <? value("closed") ?>
+                                           ELSE <? value("canceled") ?>
+                        END
+                   FROM coitem
+                  WHERE (coitem_cohead_id=cohead_id)
+                 ORDER BY CASE coitem_status WHEN 'O' THEN 1
+                                             WHEN 'C' THEN 2
+                                             ELSE  3
+                          END
+                 LIMIT 1),'O')
         AS status,
        NULL::text AS project_type,
        shipto_num AS item,
