@@ -1297,6 +1297,8 @@
     "public/tables/metasql/glseries-checkeditable.mql",
     "public/tables/metasql/glseries-detail.mql",
     "public/tables/metasql/glseries-postjournal.mql",
+    "public/tables/metasql/gltransactions-begb.mql",
+    "public/tables/metasql/gltransactions-begq.mql",
     "public/tables/metasql/gltransactions-detail.mql",
     "public/tables/metasql/incidents-detail.mql",
     "public/tables/metasql/invalidBillsofMaterials-detail.mql",
