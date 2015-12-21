@@ -1,16 +1,16 @@
-CREATE OR REPLACE FUNCTION qtyReserved(INTEGER) RETURNS NUMERIC AS '
+CREATE OR REPLACE FUNCTION qtyReserved(pItemsiteid INTEGER) RETURNS NUMERIC AS $$
 -- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple. 
 -- See www.xtuple.com/EULA for the full text of the software license.
 DECLARE
-  pItemsiteid ALIAS FOR $1;
   _qty NUMERIC;
 
 BEGIN
 
-  SELECT COALESCE(SUM(coitem_qtyreserved),0) INTO _qty
-    FROM coitem
-   WHERE(coitem_itemsite_id=pItemsiteid);
+  -- returns qty reserved in inv uom
+  SELECT COALESCE(SUM(coitem_qtyreserved * coitem_qty_invuomratio),0) INTO _qty
+    FROM itemsite JOIN coitem ON (coitem_itemsite_id=itemsite_id)
+   WHERE(itemsite_id=pItemsiteid);
 
   RETURN _qty;
 END;
-' LANGUAGE 'plpgsql';
+$$ LANGUAGE plpgsql;

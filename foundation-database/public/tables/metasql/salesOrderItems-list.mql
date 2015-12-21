@@ -126,7 +126,7 @@ SELECT coitem_id,
        qtyAvailable(itemsite_id) AS availableqoh
 <? if exists("includeReservations") ?>
        ,
-       coitem_qtyreserved AS reserved,
+       (coitem_qtyreserved * coitem_qty_invuomratio) AS reserved,
        qtyAvailable(itemsite_id) - qtyReserved(itemsite_id) AS reservable
 <? endif?>
   FROM cohead

@@ -193,14 +193,14 @@ BEGIN
       -- Remember what was reserved so we can re-reserve if this issue is returned
       INSERT INTO shipitemrsrv 
         (shipitemrsrv_shipitem_id, shipitemrsrv_qty)
-      SELECT _shipitemid, least(pQty,(coitem_qtyreserved / coitem_qty_invuomratio))
+      SELECT _shipitemid, least(pQty, coitem_qtyreserved)
       FROM coitem
       WHERE ((coitem_id=pitemid)
       AND (coitem_qtyreserved > 0));
 
       -- Update sales order
       UPDATE coitem
-        SET coitem_qtyreserved = noNeg((coitem_qtyreserved / coitem_qty_invuomratio) - pQty)
+        SET coitem_qtyreserved = noNeg(coitem_qtyreserved - pQty)
       WHERE(coitem_id=pitemid);
     END IF;
 

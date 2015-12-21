@@ -18,8 +18,8 @@ SELECT coitem_scheddate AS sortkey, 0 AS level, coitem_id AS source_id,
        formatSoNumber(coitem_id) AS order_number,
        (coitem_qtyord * coitem_qty_invuomratio) AS totalqty,
        ((coitem_qtyshipped + qtyAtShipping(coitem_id) - coitem_qtyreturned) * coitem_qty_invuomratio) as relievedqty,
-       coitem_qtyreserved AS reservedqty,
-       coitem_qtyreserved AS balanceqty,
+       (coitem_qtyreserved * coitem_qty_invuomratio) AS reservedqty,
+       (coitem_qtyreserved * coitem_qty_invuomratio) AS balanceqty,
        coitem_scheddate AS scheddate
 FROM cohead, coitem, itemsite, item 
 WHERE((coitem_cohead_id=cohead_id)

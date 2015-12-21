@@ -50,7 +50,7 @@
        ordered, formatQty(ordered) AS f_ordered,
        (qoh + ordered - sobalance) AS woavail,
 &lt;? if exists("useReservationNetting") ?>
-       formatQty(coitem_qtyreserved) AS f_soavail,
+       formatQty(soeserved) AS f_soavail,
 &lt;? else ?>
        formatQty(qoh + ordered - sobalance) AS f_soavail,
 &lt;? endif ?>
@@ -74,11 +74,11 @@
                      item_number, (item_descrip1 || ' ' || item_descrip2) AS item_description,
                      uom_name, item_picklist,
                      noNeg(qtyAvailable(itemsite_id)) AS qoh,
-                     noNeg(coitem_qtyord - coitem_qtyshipped + coitem_qtyreturned) AS sobalance,
+                     (noNeg(coitem_qtyord - coitem_qtyshipped + coitem_qtyreturned) * coitem_qty_invuomratio) AS sobalance,
                      qtyAllocated(itemsite_id, coitem_scheddate) AS allocated,
                      qtyOrdered(itemsite_id, coitem_scheddate) AS ordered,
                      qtyatshipping(coitem_id) AS atshipping,
-                     coitem_qtyreserved,
+                     (coitem_qtyreserved * coitem_qty_invuomratio) AS soreserved ,
                      CASE WHEN(itemsite_useparams) THEN itemsite_reorderlevel ELSE 0.0 END AS reorderlevel 
 &lt;? if exists(showWoSupply) ?>,  
                      COALESCE(wo_id,-1) AS wo_id,

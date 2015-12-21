@@ -4,7 +4,7 @@ CREATE OR REPLACE FUNCTION issueLineBalanceToShipping(INTEGER) RETURNS INTEGER A
 BEGIN
   RETURN issueLineBalanceToShipping('SO', $1, NULL);
 END;
-$$ LANGUAGE 'plpgsql';
+$$ LANGUAGE plpgsql;
 
 CREATE OR REPLACE FUNCTION issueLineBalanceToShipping(TEXT, INTEGER, TIMESTAMP WITH TIME ZONE) RETURNS INTEGER AS $$
 -- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple. 
@@ -12,17 +12,16 @@ CREATE OR REPLACE FUNCTION issueLineBalanceToShipping(TEXT, INTEGER, TIMESTAMP W
 BEGIN
   RETURN issueLineBalanceToShipping($1, $2, $3, 0, NULL);
 END;
-$$ LANGUAGE 'plpgsql';
+$$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE FUNCTION issueLineBalanceToShipping(TEXT, INTEGER, TIMESTAMP WITH TIME ZONE, INTEGER, INTEGER) RETURNS INTEGER AS $$
+CREATE OR REPLACE FUNCTION issueLineBalanceToShipping(pordertype TEXT,
+                                                      pitemid INTEGER,
+                                                      ptimestamp TIMESTAMP WITH TIME ZONE,
+                                                      pitemlocseries INTEGER,
+                                                      pinvhistid INTEGER) RETURNS INTEGER AS $$
 -- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple. 
 -- See www.xtuple.com/CPAL for the full text of the software license.
 DECLARE
-  pordertype		ALIAS FOR $1;
-  pitemid		ALIAS FOR $2;
-  ptimestamp		ALIAS FOR $3;
-  pitemlocseries       	ALIAS FOR $4;
-  pinvhistid		ALIAS FOR $5;
   _itemlocSeries	INTEGER := 0;
   _qty			NUMERIC;
 
@@ -31,7 +30,7 @@ BEGIN
   
   IF (pordertype = 'SO') THEN
     SELECT CASE WHEN (fetchMetricBool('RequireSOReservations'))
-                THEN (coitem_qtyreserved / coitem_qty_invuomratio)
+                THEN coitem_qtyreserved
                 ELSE noNeg( coitem_qtyord - coitem_qtyshipped + coitem_qtyreturned - qtyAtShipping('SO', coitem_id) )
            END INTO _qty
     FROM coitem
@@ -52,4 +51,4 @@ BEGIN
   RETURN _itemlocSeries;
 
 END;
-$$ LANGUAGE 'plpgsql';
+$$ LANGUAGE plpgsql;

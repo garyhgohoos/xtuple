@@ -17,7 +17,7 @@ FROM ( SELECT itemsite_id, qtyAvailable(itemsite_id) AS availableqoh,
               qtyAllocated(itemsite_id, DATE(<? value('date') ?>) + <? value('offset') ?>) AS allocated,
               qtyOrdered(itemsite_id, DATE(<? value('date') ?>) + <? value('offset') ?>) AS ordered,
 <? if exists('includeReservations') ?>
-              COALESCE((SELECT coitem_qtyreserved
+              COALESCE((SELECT (coitem_qtyreserved * coitem_qty_invuomratio)
                         FROM coitem
                         WHERE coitem_id=<? value('soitem_id') ?>), 0.0) AS reserved,
               (qtyAvailable(itemsite_id) - qtyreserved(itemsite_id)) AS reservable,

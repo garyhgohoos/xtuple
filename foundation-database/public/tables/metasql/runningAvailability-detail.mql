@@ -259,7 +259,7 @@ SELECT cohead_id AS orderid, coitem_id AS altorderid,
        (coitem_qtyord * coitem_qty_invuomratio) AS qtyordered,
        (coitem_qty_invuomratio * (coitem_qtyshipped - coitem_qtyreturned + qtyAtShipping(coitem_id))) AS qtyreceived,
        <? if exists("showReserved") ?>
-         coitem_qtyreserved AS reserved,
+         (coitem_qtyreserved * coitem_qty_invuomratio) AS reserved,
        <? else ?>
          0 AS reserved,
        <? endif ?>
