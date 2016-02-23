@@ -26,20 +26,12 @@
        (terms_code||' - '||terms_descrip) as f_terms,
        cust_number,
        quhead_billtoname,
-       formatAddr(quhead_billtoaddress1,
-                  quhead_billtoaddress2,
-                  quhead_billtoaddress3,
-                 (quhead_billtocity || ', ' || quhead_billtostate || ' ' || quhead_billtozip),
-                  quhead_billtocountry) AS f_billtoaddress,
+       formatAddr(quhead_id, 'qubill') AS f_billtoaddress,
        CASE WHEN(quhead_shipto_id=-1) THEN text('')
             ELSE (SELECT text(shipto_num) FROM shiptoinfo WHERE (shipto_id=quhead_shipto_id))
        END AS f_shiptonum,
        quhead_shiptoname,
-       formatAddr(quhead_shiptoaddress1,
-                  quhead_shiptoaddress2,
-                  quhead_shiptoaddress3,
-                 (quhead_shiptocity || ', ' || quhead_shiptostate || ' ' || quhead_shiptozipcode),
-                  quhead_shiptocountry) AS f_shiptoaddress,
+       formatAddr(quhead_id, 'quship') AS f_shiptoaddress,
        quhead_custponumber,
        quhead_fob, saletype_code
 FROM quhead
@@ -129,17 +121,9 @@ WHERE ( (quhead_curr_id = curr_id)
  <querysource>
   <name>address</name>
   <sql>SELECT warehous_descrip,
-       formatAddr(addr_line1,
-                  addr_line2,
-                  addr_line3,
-                 (addr_city || '  ' || addr_state || '  ' || addr_postalcode),
-                  addr_country) AS warehouse_address
-FROM whsinfo, 
-     addr, 
-     quhead
-WHERE ( (addr_id = warehous_addr_id)
-  AND   (quhead_warehous_id = warehous_id)
-  AND   (quhead_id=&lt;? value("quhead_id") ?>) );</sql>
+       formatAddr(warehous_addr_id) AS warehouse_address
+FROM quhead JOIN whsinfo ON (warehous_id=quhead_warehous_id)  
+WHERE (quhead_id=&lt;? value("quhead_id") ?>);</sql>
  </querysource>
  <querysource>
   <name>contact_fax_phone</name>

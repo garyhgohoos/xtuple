@@ -1,9 +1,9 @@
 <!DOCTYPE openRPTDef>
 <report>
- <title>Credit Memo</title>
+ <title>Return</title>
  <name>CreditMemo</name>
- <description>Sales Module Credit Memo with Logo and CM Currency</description>
- <parameter default="" listtype="dynamic" type="string" active="true" name="cmhead_id">
+ <description>Sales Module Return with Logo and CM Currency</description>
+ <parameter default="" active="true" listtype="dynamic" type="string" name="cmhead_id">
   <description></description>
   <query>select cmhead_id, cmhead_number from cmhead;</query>
  </parameter>
@@ -26,16 +26,10 @@
        formatDate(cmhead_docdate) AS docdate,
        cust_number,
        cust_name,
-       formatAddr(cmhead_billtoaddress1, cmhead_billtoaddress2, cmhead_billtoaddress3,
-                  COALESCE(cmhead_billtocity,'') || '  ' || COALESCE(cmhead_billtostate,'') || '  ' || COALESCE(cmhead_billtozip,''),
-                   cmhead_billtocountry)
-       AS f_custaddr,
+       formatAddr(cmhead_id, 'cmbill') AS f_custaddr,
        cntct_phone AS cust_phone,
        cmhead_shipto_name,
-       formatAddr(cmhead_shipto_address1, cmhead_shipto_address2, cmhead_shipto_address3,
-                  COALESCE(cmhead_shipto_city,'') ||'  '|| COALESCE(cmhead_shipto_state,'') || '  '|| COALESCE(cmhead_shipto_zipcode,''),
-                  cmhead_shipto_country)
-                  AS f_shiptoaddr,
+       formatAddr(cmhead_id, 'cmship') AS f_shiptoaddr,
        CASE 
          WHEN (cmhead_invcnumber='-1') THEN ''
          --note: must now set explicit type for Postgres 8.3+
@@ -60,27 +54,27 @@ ORDER BY cmhead_number;</sql>
        formatQty(cmitem_qtycredit) AS qtycredit,
        formatQty(cmitem_qtyreturned) AS qtyreturned,
        uom_name,
-       COALESCE(item_number, cmitem_number) AS item_number,
-       COALESCE(item_descrip1, cmitem_descrip) AS item_descrip1,
+       item_number,
+       item_descrip1,
        item_descrip2,
        formatSalesPrice(cmitem_unitprice) AS unitprice,
        formatMoney((cmitem_qtycredit * cmitem_qty_invuomratio) * (cmitem_unitprice / cmitem_price_invuomratio)) AS extprice,
        cmitem_comments
-  FROM cmitem
-  LEFT OUTER JOIN itemsite ON (cmitem_itemsite_id=itemsite_id)
-  LEFT OUTER JOIN item ON (itemsite_item_id=item_id)
-  LEFT OUTER JOIN uom ON (item_inv_uom_id=uom_id)
-WHERE (cmitem_cmhead_id=&lt;? value("cmhead_id") ?>)
+  FROM cmitem, itemsite, item, uom
+ WHERE ((cmitem_itemsite_id=itemsite_id)
+   AND (itemsite_item_id=item_id)
+   AND (item_inv_uom_id=uom_id)
+   AND (cmitem_cmhead_id=&lt;? value("cmhead_id") ?>))
 ORDER BY cmitem_linenumber;</sql>
  </querysource>
  <querysource>
   <name>GroupFoot</name>
   <sql>SELECT formatExtPrice(SUM((cmitem_qtycredit * cmitem_qty_invuomratio) * cmitem_unitprice / cmitem_price_invuomratio)) AS extprice
-  FROM cmhead 
-  LEFT OUTER JOIN cmitem ON (cmitem_cmhead_id=cmhead_id)
-  LEFT OUTER JOIN itemsite ON (cmitem_itemsite_id=itemsite_id)
-  LEFT OUTER JOIN item ON (itemsite_item_id=item_id)
-WHERE (cmhead_id=&lt;? value("cmhead_id") ?>);</sql>
+  FROM cmhead, cmitem, itemsite, item
+ WHERE ((cmitem_cmhead_id=cmhead_id)
+   AND (cmitem_itemsite_id=itemsite_id)
+   AND (itemsite_item_id=item_id)
+   AND (cmhead_id=&lt;? value("cmhead_id") ?>));</sql>
  </querysource>
  <querysource>
   <name>GroupExtended</name>
@@ -652,7 +646,7 @@ WHERE ((image_name='logo'));</sql>
    </font>
    <right/>
    <vcenter/>
-   <string>Credit Memo</string>
+   <string>Return</string>
   </label>
   <field>
    <rect>

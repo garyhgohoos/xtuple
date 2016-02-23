@@ -110,15 +110,9 @@ WHERE (pohead_id = &lt;? value("pohead_id") ?>) AND
   <name>Address</name>
   <sql>SELECT
      warehous_descrip,
-     formatAddr(addr_line1, addr_line2, addr_line3, ( addr_city || '  ' || addr_state || '  ' || addr_postalcode), addr_country) AS warehouse_address
-FROM
-     whsinfo, 
-     addr, 
-     pohead
-WHERE 
-     addr_id = warehous_addr_id
-     and pohead_warehous_id = warehous_id
-     AND pohead_id=&lt;? value("pohead_id") ?> ;</sql>
+     formatAddr(warehous_addr_id) AS warehouse_address
+FROM pohead JOIN whsinfo ON (warehous_id=pohead_warehous_id)
+WHERE pohead_id=&lt;? value("pohead_id") ?> ;</sql>
  </querysource>
  <querysource>
   <name>ShipToAddress</name>
@@ -134,7 +128,7 @@ WHERE
        va.addr_line3 AS vend_address3,
        (va.addr_city || '  '  || va.addr_state || '  ' || va.addr_postalcode) AS vendcitystatezip,
        formatcntctname(pohead_vend_cntct_id) AS vend_contact,
-       formataddr(pohead_vendaddress1, pohead_vendaddress2, pohead_vendaddress3, (pohead_vendcity || '  '  || pohead_vendstate || '   ' || pohead_vendzipcode), pohead_vendcountry) as vend_address,
+       formataddr(pohead_id, 'povend') as vend_address,
        warehous_descrip,
        wa.addr_line1 as warehous_addr1,
        wa.addr_line2 as warehous_addr2,
@@ -145,7 +139,7 @@ WHERE
        wa.addr_country,
        pohead_shiptoname AS shipto_name,
        formatcntctname(pohead_shipto_cntct_id) AS shipto_contact,
-       formataddr(pohead_shiptoaddress1, pohead_shiptoaddress2, pohead_shiptoaddress3, (pohead_shiptocity || ' ' || pohead_shiptostate || ' ' || pohead_shiptozipcode), pohead_shiptocountry) as shipto_address,
+       formataddr(pohead_id, 'poship') as shipto_address,
        pohead_agent_username AS username,
        pohead_comments,
        text(&lt;? value("title") ?>) AS title
