@@ -662,6 +662,7 @@
     "public/functions/kitatshipping.sql",
     "public/functions/last_agg.sql",
     "public/functions/listprice.sql",
+    "public/functions/listpriceschedule.sql",
     "public/functions/login.sql",
     "public/functions/logout.sql",
     "public/functions/lowercost.sql",

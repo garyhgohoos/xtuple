@@ -134,7 +134,7 @@ FROM (
            item_id AS sourceid,
            NULL AS source,
            NULL AS ipshead_id,
-           '' AS schedulename,
+           <? value('listpricesched') ?> AS schedulename,
            <? value('listPrice') ?> AS type,
            -1 AS invqty,
            -1 AS qtybreak,
