@@ -14,9 +14,7 @@ DECLARE
 
 BEGIN
 
--- Returns the list price of an item by either selecting from an
--- assigned List Price Schedule or the item_listprice.
--- List price always returned in base currency and price uom.
+-- Returns the List Price Schedule name of an item
 
   _itempricingprecedence := fetchMetricBool('ItemPricingPrecedence');
 
@@ -41,10 +39,10 @@ BEGIN
 -- 5. Customer Type
 -- 6. Customer Type Pattern
 
--- Find the best List Price Schedule Price
+-- Find the best List Price Schedule
  
   SELECT INTO _ips
-    *, currToBase(ipshead_curr_id, protoprice, pAsOf) AS rightprice
+    *
   FROM (
     SELECT *,
            CASE WHEN (COALESCE(ipsass_shipto_id, -1) > 0) THEN 1
@@ -55,11 +53,6 @@ BEGIN
                 WHEN (COALESCE(LENGTH(ipsass_custtype_pattern), 0) > 0) THEN 6
                 ELSE 99
            END AS assignseq,
-           calcIpsitemPrice(ipsitem_id,
-                            pItemid,
-                            pSiteid,
-                            NULL,
-                            pAsOf) AS protoprice,
            (COALESCE(ipsitem_price_uom_id, -1)=COALESCE(_item.item_price_uom_id,-1)) AS uommatched,
            CASE WHEN (_itempricingprecedence) THEN (COALESCE(ipsitem_item_id, -1)=_item.item_id)
                 ELSE true END AS itemmatched
@@ -75,16 +68,11 @@ BEGIN
        OR   (ipsass_custtype_id=_cust.cust_custtype_id)
        OR   ((COALESCE(LENGTH(ipsass_custtype_pattern), 0) > 0) AND (_cust.custtype_code ~ ipsass_custtype_pattern)) )
   ) AS proto
-  ORDER BY assignseq, itemmatched DESC, protoprice
+  ORDER BY assignseq, itemmatched DESC
   LIMIT 1;
  
-  IF (_ips.rightprice IS NOT NULL) THEN
+  IF (_ips.ipshead_name IS NOT NULL) THEN
     RETURN _ips.ipshead_name;
-  END IF;
-
---  If item is exclusive then list list price does not apply
-  IF (_item.item_exclusive) THEN
-    RETURN '';
   END IF;
 
   RETURN '';
