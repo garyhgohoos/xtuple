@@ -35,13 +35,13 @@ BEGIN
   _asof := COALESCE(pAsOf, CURRENT_DATE);
 
 --  Cache Item, Customer and Shipto
-  SELECT *,
+  SELECT item.*,
          CASE WHEN (itemsite_id IS NULL) THEN
                    (stdCost(item_id) / itemuomtouomratio(item_id, item_inv_uom_id, item_price_uom_id))
               ELSE
                    (itemCost(itemsite_id) / itemuomtouomratio(item_id, item_inv_uom_id, item_price_uom_id))
          END AS invcost INTO _item
-  FROM item
+  FROM item LEFT OUTER JOIN itemsite ON (itemsite_item_id=item_id AND itemsite_warehous_id=pSiteid)
   WHERE (item_id=pItemid);
 
   SELECT * INTO _cust
