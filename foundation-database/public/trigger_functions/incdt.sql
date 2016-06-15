@@ -41,9 +41,16 @@ BEGIN
 
   NEW.incdt_updated := now();
 
+  -- Timestamps
+  IF (TG_OP = 'INSERT') THEN
+    NEW.incdt_created := now();
+  ELSIF (TG_OP = 'UPDATE') THEN
+    NEW.incdt_lastupdated := now();
+  END IF;
+
   RETURN NEW;
 END;
-$$ LANGUAGE 'plpgsql';
+$$ LANGUAGE plpgsql;
 
 SELECT dropIfExists('TRIGGER', 'incdtbeforetrigger');
 CREATE TRIGGER incdtbeforetrigger
@@ -85,7 +92,7 @@ BEGIN
 
   RETURN NEW;
 END;
-$$ LANGUAGE 'plpgsql';
+$$ LANGUAGE plpgsql;
 
 SELECT dropIfExists('TRIGGER', 'incdtbeforedeletetrigger');
 CREATE TRIGGER incdtbeforedeletetrigger
@@ -319,7 +326,7 @@ BEGIN
 
   RETURN NEW;
   END;
-$$ LANGUAGE 'plpgsql';
+$$ LANGUAGE plpgsql;
 
 SELECT dropIfExists('TRIGGER', 'incdttrigger');
 CREATE TRIGGER incdttrigger
@@ -342,7 +349,7 @@ BEGIN
 
   RETURN OLD;
 END;
-$$ LANGUAGE 'plpgsql';
+$$ LANGUAGE plpgsql;
 
 SELECT dropIfExists('TRIGGER', 'incdtAfterDeleteTrigger');
 CREATE TRIGGER incdtAfterDeleteTrigger

@@ -16,9 +16,16 @@ BEGIN
     RAISE EXCEPTION 'You must ender a valid name.';
   END IF;
 
+  -- Timestamps
+  IF (TG_OP = 'INSERT') THEN
+    NEW.prjtask_created := now();
+  ELSIF (TG_OP = 'UPDATE') THEN
+    NEW.prjtask_lastupdated := now();
+  END IF;
+
   RETURN NEW;
 END;
-$$ LANGUAGE 'plpgsql';
+$$ LANGUAGE plpgsql;
 
 SELECT dropIfExists('TRIGGER', 'prjtaskTrigger');
 CREATE TRIGGER prjtaskTrigger
@@ -30,51 +37,42 @@ CREATE TRIGGER prjtaskTrigger
 CREATE OR REPLACE FUNCTION _prjtaskAfterTrigger () RETURNS TRIGGER AS $$
 -- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple.
 -- See www.xtuple.com/CPAL for the full text of the software license.
-DECLARE
-  _cmnttypeid INTEGER;
 BEGIN
 
-  SELECT cmnttype_id INTO _cmnttypeid
-  FROM cmnttype
-  WHERE (cmnttype_name='ChangeLog');
-  IF (NOT FOUND) THEN
-    RAISE EXCEPTION 'Comment type ChangeLog not found';
-  END IF;
-
   IF (TG_OP = 'INSERT') THEN
-    PERFORM postComment(_cmnttypeid, 'TA', NEW.prjtask_id, 'Created');
+    PERFORM postComment('ChangeLog', 'TA', NEW.prjtask_id, 'Created');
 
   ELSIF (TG_OP = 'UPDATE') THEN
     IF (OLD.prjtask_start_date <> NEW.prjtask_start_date) THEN
-      PERFORM postComment( _cmnttypeid, 'TA', NEW.prjtask_id,
-                           ('Start Date Changed from ' || formatDate(OLD.prjtask_start_date) || ' to ' || formatDate(NEW.prjtask_start_date)) );
+      PERFORM postComment('ChangeLog', 'TA', NEW.prjtask_id, 'Start Date',
+                          formatDate(OLD.prjtask_start_date), formatDate(NEW.prjtask_start_date));
     END IF;
     IF (OLD.prjtask_due_date <> NEW.prjtask_due_date) THEN
-      PERFORM postComment( _cmnttypeid, 'TA', NEW.prjtask_id,
-                           ('Due Date Changed from ' || formatDate(OLD.prjtask_due_date) || ' to ' || formatDate(NEW.prjtask_due_date)) );
+      PERFORM postComment('ChangeLog', 'TA', NEW.prjtask_id, 'Due Date',
+                          formatDate(OLD.prjtask_due_date), formatDate(NEW.prjtask_due_date));
     END IF;
     IF (OLD.prjtask_assigned_date <> NEW.prjtask_assigned_date) THEN
-      PERFORM postComment( _cmnttypeid, 'TA', NEW.prjtask_id,
-                           ('Assigned Date Changed from ' || formatDate(OLD.prjtask_assigned_date) || ' to ' || formatDate(NEW.prjtask_assigned_date)) );
+      PERFORM postComment('ChangeLog', 'TA', NEW.prjtask_id, 'Assigned Date',
+                          formatDate(OLD.prjtask_assigned_date), formatDate(NEW.prjtask_assigned_date));
     END IF;
     IF (OLD.prjtask_completed_date <> NEW.prjtask_completed_date) THEN
-      PERFORM postComment( _cmnttypeid, 'TA', NEW.prjtask_id,
-                           ('Completed Date Changed from ' || formatDate(OLD.prjtask_completed_date) || ' to ' || formatDate(NEW.prjtask_completed_date)) );
+      PERFORM postComment('ChangeLog', 'TA', NEW.prjtask_id, 'Completed Date',
+                          formatDate(OLD.prjtask_completed_date), formatDate(NEW.prjtask_completed_date));
     END IF;
     IF (OLD.prjtask_hours_actual != NEW.prjtask_hours_actual) THEN
-      PERFORM postComment(_cmnttypeid, 'TA', NEW.prjtask_id,
-          'Actual Hours changed from ' || formatQty(OLD.prjtask_hours_actual) || ' to ' || formatQty(NEW.prjtask_hours_actual));
+      PERFORM postComment('ChangeLog', 'TA', NEW.prjtask_id, 'Actual Hours',
+                          formatQty(OLD.prjtask_hours_actual), formatQty(NEW.prjtask_hours_actual));
     END IF;
     IF (OLD.prjtask_exp_actual != NEW.prjtask_exp_actual) THEN
-      PERFORM postComment(_cmnttypeid, 'TA', NEW.prjtask_id,
-          'Actual Expense changed from ' || formatQty(OLD.prjtask_exp_actual) || ' to ' || formatQty(NEW.prjtask_exp_actual));
+      PERFORM postComment('ChangeLog', 'TA', NEW.prjtask_id, 'Actual Expense',
+                          formatMoney(OLD.prjtask_exp_actual), formatMoney(NEW.prjtask_exp_actual));
     END IF;
 
   END IF;
 
   RETURN NEW;
 END;
-$$ LANGUAGE 'plpgsql';
+$$ LANGUAGE plpgsql;
 
 SELECT dropIfExists('TRIGGER', 'prjtaskAfterTrigger');
 CREATE TRIGGER prjtaskAfterTrigger
@@ -97,7 +95,7 @@ BEGIN
 
   RETURN OLD;
 END;
-$$ LANGUAGE 'plpgsql';
+$$ LANGUAGE plpgsql;
 
 SELECT dropIfExists('TRIGGER', 'prjtaskAfterDeleteTrigger');
 CREATE TRIGGER prjtaskAfterDeleteTrigger

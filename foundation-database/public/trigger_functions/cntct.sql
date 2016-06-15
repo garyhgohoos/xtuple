@@ -12,9 +12,16 @@ BEGIN
     PERFORM clearNumberIssue('ContactNumber', NEW.cntct_number);
   END IF;
 
+  -- Timestamps
+  IF (TG_OP = 'INSERT') THEN
+    NEW.cntct_created := now();
+  ELSIF (TG_OP = 'UPDATE') THEN
+    NEW.cntct_lastupdated := now();
+  END IF;
+
   RETURN NEW;
 END;
-$$ LANGUAGE 'plpgsql';
+$$ LANGUAGE plpgsql;
 
 SELECT dropIfExists('TRIGGER', 'cntctTrigger');
 CREATE TRIGGER cntcttrigger
@@ -23,6 +30,7 @@ CREATE TRIGGER cntcttrigger
   FOR EACH ROW
   EXECUTE PROCEDURE _cntctTrigger();
 
+-- Before Delete trigger
 CREATE OR REPLACE FUNCTION _cntctTriggerBeforeDelete() RETURNS "trigger" AS $$
 -- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple.
 -- See www.xtuple.com/CPAL for the full text of the software license.
@@ -60,7 +68,7 @@ BEGIN
   END IF;
   RETURN OLD;
 END;
-$$ LANGUAGE 'plpgsql';
+$$ LANGUAGE plpgsql;
 
 SELECT dropIfExists('TRIGGER', 'cntctTriggerBeforeDelete');
 CREATE TRIGGER cntcttriggerbeforedelete
@@ -77,14 +85,18 @@ DECLARE
 
 BEGIN
 
-  DELETE
-  FROM charass
-  WHERE charass_target_type = 'CNTCT'
-    AND charass_target_id = OLD.cntct_id;
+  DELETE FROM charass
+   WHERE charass_target_type = 'CNTCT'
+     AND charass_target_id = OLD.cntct_id;
+  DELETE FROM comment
+   WHERE (comment_source_id=OLD.cntct_id AND comment_source = 'T');
+  DELETE FROM docass
+   WHERE (docass_source_id=OLD.cntct_id AND docass_source_type = 'T')
+      OR (docass_target_id=OLD.cntct_id AND docass_target_type = 'T');
 
   RETURN OLD;
 END;
-$$ LANGUAGE 'plpgsql';
+$$ LANGUAGE plpgsql;
 
 SELECT dropIfExists('TRIGGER', 'cntctAfterDeleteTrigger');
 CREATE TRIGGER cntctAfterDeleteTrigger
@@ -108,8 +120,7 @@ BEGIN
       VALUES (
         NEW.cntct_id, true, NEW.cntct_email );
     END IF;
-    PERFORM postComment('ChangeLog', 'T', NEW.cntct_id,
-                        ('Created by ' || getEffectiveXtUser()));
+    PERFORM postComment('ChangeLog', 'T', NEW.cntct_id, 'Created');
   ELSIF (TG_OP = 'UPDATE') THEN
     IF (OLD.cntct_email != NEW.cntct_email) THEN
       SELECT cntcteml_id INTO _cntctemlid
@@ -139,19 +150,11 @@ BEGIN
         WHERE (cntcteml_id=_cntctemlid);
       END IF;
     END IF;
-  ELSIF (TG_OP = 'DELETE') THEN
-      DELETE FROM comment
-       WHERE (comment_source_id=OLD.cntct_id AND comment_source = 'T');
-      DELETE FROM docass
-       WHERE (docass_source_id=OLD.cntct_id AND docass_source_type = 'T')
-          OR (docass_target_id=OLD.cntct_id AND docass_target_type = 'T');
-
-      RETURN OLD;
   END IF;
 
   RETURN NEW;
 END;
-$$ LANGUAGE 'plpgsql';
+$$ LANGUAGE plpgsql;
 
 SELECT dropIfExists('TRIGGER', 'cntctTriggerAfter');
 CREATE TRIGGER cntcttriggerafter

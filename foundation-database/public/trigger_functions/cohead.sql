@@ -420,9 +420,7 @@ BEGIN
     END IF;
   END IF;
 
-  IF ( SELECT (metric_value='t')
-       FROM metric
-       WHERE (metric_name='SalesOrderChangeLog') ) THEN
+  IF (fetchMetricBool('SalesOrderChangeLog')) THEN
 
     IF (TG_OP = 'INSERT') THEN
       PERFORM postComment('ChangeLog', 'S', NEW.cohead_id, 'Created');
@@ -431,41 +429,31 @@ BEGIN
 
       IF ( (OLD.cohead_terms_id <> NEW.cohead_terms_id) AND
            (OLD.cohead_cust_id = NEW.cohead_cust_id) ) THEN
-        PERFORM postComment( 'ChangeLog', 'S', NEW.cohead_id,
-                             ('Terms Changed from "' || oldterms.terms_code || '" to "' || newterms.terms_code || '"') )
-        FROM terms AS oldterms, terms AS newterms
-        WHERE ( (oldterms.terms_id=OLD.cohead_terms_id)
-         AND (newterms.terms_id=NEW.cohead_terms_id) );
+        PERFORM postComment( 'ChangeLog', 'S', NEW.cohead_id, 'Terms',
+                             (SELECT terms_code FROM terms WHERE terms_id=OLD.cohead_terms_id),
+                             (SELECT terms_code FROM terms WHERE terms_id=NEW.cohead_terms_id));
       END IF;
 
       IF ( (OLD.cohead_shipvia <> NEW.cohead_shipvia) AND
            (OLD.cohead_cust_id = NEW.cohead_cust_id) ) THEN
-        PERFORM postComment ('ChangeLog', 'S', New.cohead_id, ('Shipvia Changed from "' || OLD.cohead_shipvia || '" to "' || NEW.cohead_shipvia || '"'));
+        PERFORM postComment ('ChangeLog', 'S', NEW.cohead_id, 'Shipvia',
+                             OLD.cohead_shipvia, NEW.cohead_shipvia);
       END IF;
 
       IF (OLD.cohead_holdtype <> NEW.cohead_holdtype) THEN
-        PERFORM postComment( 'ChangeLog', 'S', NEW.cohead_id,
-                             ( 'Hold Type Changed from ' || (CASE OLD.cohead_holdtype WHEN('N') THEN 'No Hold'
-                                                                                      WHEN('C') THEN 'Credit Hold'
-                                                                                      WHEN('P') THEN 'Packing Hold'
-                                                                                      WHEN('S') THEN 'Shipping Hold'
-                                                                                      ELSE 'Unknown/Error' END) ||
-                               ' to ' || (CASE NEW.cohead_holdtype WHEN('N') THEN 'No Hold'
-                                                                   WHEN('C') THEN 'Credit Hold'
-                                                                   WHEN('P') THEN 'Packing Hold'
-                                                                   WHEN('S') THEN 'Shipping Hold'
-                                                                   ELSE 'Unknown/Error' END) ) );
+        PERFORM postComment( 'ChangeLog', 'S', NEW.cohead_id, 'Hold Type',
+                             (CASE OLD.cohead_holdtype WHEN('N') THEN 'No Hold'
+                                                       WHEN('C') THEN 'Credit Hold'
+                                                       WHEN('P') THEN 'Packing Hold'
+                                                       WHEN('S') THEN 'Shipping Hold'
+                                                       ELSE 'Unknown/Error' END),
+                             (CASE NEW.cohead_holdtype WHEN('N') THEN 'No Hold'
+                                                       WHEN('C') THEN 'Credit Hold'
+                                                       WHEN('P') THEN 'Packing Hold'
+                                                       WHEN('S') THEN 'Shipping Hold'
+                                                       ELSE 'Unknown/Error' END) );
       END IF;
     END IF;
-  END IF;
-
-  IF (TG_OP = 'DELETE') THEN
-    DELETE FROM docass WHERE docass_source_id = OLD.cohead_id AND docass_source_type = 'S';
-    DELETE FROM docass WHERE docass_target_id = OLD.cohead_id AND docass_target_type = 'S';
-
-    DELETE FROM comment
-    WHERE ( (comment_source='S')
-     AND (comment_source_id=OLD.cohead_id) );
   END IF;
 
   IF (TG_OP = 'UPDATE') THEN
@@ -498,16 +486,17 @@ BEGIN
     END IF;
   END IF;
 
-  IF (TG_OP = 'DELETE') THEN
-    RETURN OLD;
-  ELSE
-    NEW.cohead_lastupdated = CURRENT_TIMESTAMP;
-
-    RETURN NEW;
+  -- Timestamps
+  IF (TG_OP = 'INSERT') THEN
+    NEW.cohead_created := now();
+  ELSIF (TG_OP = 'UPDATE') THEN
+    NEW.cohead_lastupdated := now();
   END IF;
 
+  RETURN NEW;
+
 END;
-$$ LANGUAGE 'plpgsql';
+$$ LANGUAGE plpgsql;
 
 DROP TRIGGER IF EXISTS soheadTrigger ON cohead;
 CREATE TRIGGER soheadTrigger
@@ -536,7 +525,7 @@ BEGIN
 
   RETURN NEW;
 END;
-$$ LANGUAGE 'plpgsql';
+$$ LANGUAGE plpgsql;
 
 SELECT dropifexists('TRIGGER','soheadTriggerAfter');
 CREATE TRIGGER soheadTriggerAfter
@@ -545,6 +534,31 @@ CREATE TRIGGER soheadTriggerAfter
   FOR EACH ROW
   EXECUTE PROCEDURE _soheadTriggerAfter();
 
+CREATE OR REPLACE FUNCTION _coheadBeforeDeleteTrigger() RETURNS TRIGGER AS $$
+-- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple.
+-- See www.xtuple.com/CPAL for the full text of the software license.
+DECLARE
+
+BEGIN
+
+  DELETE FROM docass WHERE docass_source_id = OLD.cohead_id AND docass_source_type = 'S';
+  DELETE FROM docass WHERE docass_target_id = OLD.cohead_id AND docass_target_type = 'S';
+
+  DELETE FROM comment
+  WHERE ( (comment_source='S')
+   AND (comment_source_id=OLD.cohead_id) );
+
+  RETURN OLD;
+END;
+$$ LANGUAGE plpgsql;
+
+SELECT dropIfExists('TRIGGER', 'coheadBeforeDeleteTrigger');
+CREATE TRIGGER coheadBeforeDeleteTrigger
+  BEFORE DELETE
+  ON cohead
+  FOR EACH ROW
+  EXECUTE PROCEDURE _coheadBeforeDeleteTrigger();
+
 CREATE OR REPLACE FUNCTION _coheadAfterDeleteTrigger() RETURNS TRIGGER AS $$
 -- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple.
 -- See www.xtuple.com/CPAL for the full text of the software license.
@@ -552,14 +566,13 @@ DECLARE
 
 BEGIN
 
-  DELETE
-  FROM charass
+  DELETE FROM charass
   WHERE charass_target_type = 'SO'
     AND charass_target_id = OLD.cohead_id;
 
   RETURN OLD;
 END;
-$$ LANGUAGE 'plpgsql';
+$$ LANGUAGE plpgsql;
 
 SELECT dropIfExists('TRIGGER', 'coheadAfterDeleteTrigger');
 CREATE TRIGGER coheadAfterDeleteTrigger

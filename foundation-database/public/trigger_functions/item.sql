@@ -23,10 +23,17 @@ BEGIN
     NEW.item_config := false;
   END IF;
 
+  -- Timestamps
+  IF (TG_OP = 'INSERT') THEN
+    NEW.item_created := now();
+  ELSIF (TG_OP = 'UPDATE') THEN
+    NEW.item_lastupdated := now();
+  END IF;
+
   RETURN NEW;
 
 END;
-$$ LANGUAGE 'plpgsql';
+$$ LANGUAGE plpgsql;
 
 DROP TRIGGER IF EXISTS itemTrigger ON item;
 CREATE TRIGGER itemTrigger
@@ -38,8 +45,6 @@ CREATE TRIGGER itemTrigger
 CREATE OR REPLACE FUNCTION _itemAfterTrigger () RETURNS TRIGGER AS $$
 -- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple.
 -- See www.xtuple.com/CPAL for the full text of the software license.
-DECLARE
-  _cmnttypeid INTEGER;
 
 BEGIN
 -- Privilege Checks
@@ -75,168 +80,132 @@ BEGIN
     END IF;
   END IF;
 
-  IF ( SELECT (metric_value='t')
-       FROM metric
-       WHERE (metric_name='ItemChangeLog') ) THEN
+  IF (fetchMetricBool('ItemChangeLog')) THEN
+    IF (TG_OP = 'INSERT') THEN
+      PERFORM postComment('ChangeLog', 'I', NEW.item_id, 'Created');
 
---  Cache the cmnttype_id for ChangeLog
-    SELECT cmnttype_id INTO _cmnttypeid
-    FROM cmnttype
-    WHERE (cmnttype_name='ChangeLog');
-    IF (FOUND) THEN
-      IF (TG_OP = 'INSERT') THEN
-        PERFORM postComment(_cmnttypeid, 'I', NEW.item_id, 'Created');
-
-      ELSIF (TG_OP = 'UPDATE') THEN
-        IF (OLD.item_active <> NEW.item_active) THEN
-          IF (NEW.item_active) THEN
-            PERFORM postComment(_cmnttypeid, 'I', NEW.item_id, 'Activated');
-          ELSE
-            PERFORM postComment(_cmnttypeid, 'I', NEW.item_id, 'Deactivated');
-          END IF;
+    ELSIF (TG_OP = 'UPDATE') THEN
+      IF (OLD.item_active <> NEW.item_active) THEN
+        IF (NEW.item_active) THEN
+          PERFORM postComment('ChangeLog', 'I', NEW.item_id, 'Activated');
+        ELSE
+          PERFORM postComment('ChangeLog', 'I', NEW.item_id, 'Deactivated');
         END IF;
+      END IF;
 
-        IF (OLD.item_descrip1 <> NEW.item_descrip1) THEN
-          PERFORM postComment( _cmnttypeid, 'I', NEW.item_id,
-                               ( 'Description 1 Changed from "' || OLD.item_descrip1 ||
-                                 '" to "' || NEW.item_descrip1 || '"' ) );
-        END IF;
+      IF (OLD.item_descrip1 <> NEW.item_descrip1) THEN
+        PERFORM postComment('ChangeLog', 'I', NEW.item_id, 'Description 1',
+                            OLD.item_descrip1, NEW.item_descrip1);
+      END IF;
 
-        IF (OLD.item_descrip2 <> NEW.item_descrip2) THEN
-          PERFORM postComment( _cmnttypeid, 'I', NEW.item_id,
-                               ( 'Description 2 Changed from "' || OLD.item_descrip2 ||
-                                 '" to "' || NEW.item_descrip2 || '"' ) );
-        END IF;
+      IF (OLD.item_descrip2 <> NEW.item_descrip2) THEN
+        PERFORM postComment('ChangeLog', 'I', NEW.item_id, 'Description 2',
+                            OLD.item_descrip2, NEW.item_descrip2);
+      END IF;
 
-        IF (OLD.item_inv_uom_id <> NEW.item_inv_uom_id) THEN
-          PERFORM postComment( _cmnttypeid, 'I', NEW.item_id,
-                               ( 'Inventory UOM Changed from "' ||
-                                 (SELECT uom_name FROM uom WHERE uom_id=OLD.item_inv_uom_id) ||
-                                 '" (' || CAST(OLD.item_inv_uom_id AS TEXT) ||
-                                 ') to "' ||
-                                 (SELECT uom_name FROM uom WHERE uom_id=NEW.item_inv_uom_id) ||
-                                 '" (' || CAST(NEW.item_inv_uom_id AS TEXT) || ')' ) );
-        END IF;
+      IF (OLD.item_inv_uom_id <> NEW.item_inv_uom_id) THEN
+        PERFORM postComment('ChangeLog', 'I', NEW.item_id, 'Inventory UOM',
+                            (SELECT uom_name FROM uom WHERE uom_id=OLD.item_inv_uom_id),
+                            (SELECT uom_name FROM uom WHERE uom_id=NEW.item_inv_uom_id));
+      END IF;
 
-        IF (OLD.item_sold <> NEW.item_sold) THEN
-          PERFORM postComment( _cmnttypeid, 'I', NEW.item_id,
-                               CASE WHEN (NEW.item_sold) THEN 'Sold Changed from FALSE to TRUE'
-                                    ELSE 'Sold Changed from TRUE to FALSE'
-                               END );
-        END IF;
+      IF (OLD.item_sold <> NEW.item_sold) THEN
+        PERFORM postComment('ChangeLog', 'I', NEW.item_id,
+                            CASE WHEN (NEW.item_sold) THEN 'Sold Changed from FALSE to TRUE'
+                                 ELSE 'Sold Changed from TRUE to FALSE'
+                            END);
+      END IF;
 
-        IF (OLD.item_picklist <> NEW.item_picklist) THEN
-          PERFORM postComment( _cmnttypeid, 'I', NEW.item_id,
-                               CASE WHEN (NEW.item_picklist) THEN 'Pick List Changed from FALSE to TRUE'
-                                    ELSE 'Pick List Changed from TRUE to FALSE'
-                               END );
-        END IF;
+      IF (OLD.item_picklist <> NEW.item_picklist) THEN
+        PERFORM postComment('ChangeLog', 'I', NEW.item_id,
+                            CASE WHEN (NEW.item_picklist) THEN 'Pick List Changed from FALSE to TRUE'
+                                 ELSE 'Pick List Changed from TRUE to FALSE'
+                            END );
+      END IF;
 
-        IF (OLD.item_fractional <> NEW.item_fractional) THEN
-          PERFORM postComment( _cmnttypeid, 'I', NEW.item_id,
-                               CASE WHEN (NEW.item_fractional) THEN 'Fractional Changed from FALSE to TRUE'
-                                    ELSE 'Fractional Changed from TRUE to FALSE'
-                               END );
-        END IF;
+      IF (OLD.item_fractional <> NEW.item_fractional) THEN
+        PERFORM postComment('ChangeLog', 'I', NEW.item_id,
+                            CASE WHEN (NEW.item_fractional) THEN 'Fractional Changed from FALSE to TRUE'
+                                 ELSE 'Fractional Changed from TRUE to FALSE'
+                            END );
+      END IF;
 
-        IF (OLD.item_exclusive <> NEW.item_exclusive) THEN
-          PERFORM postComment( _cmnttypeid, 'I', NEW.item_id,
-                               CASE WHEN (NEW.item_exclusive) THEN 'Exclusive Changed from FALSE to TRUE'
-                                    ELSE 'Exclusive Changed from TRUE to FALSE'
-                               END );
-        END IF;
-        IF (OLD.item_config <> NEW.item_config) THEN
-          PERFORM postComment( _cmnttypeid, 'I', NEW.item_id,
-                               CASE WHEN (NEW.item_config) THEN 'Configured Changed from FALSE to TRUE'
-                                    ELSE 'Configured Changed from TRUE to FALSE'
-                               END );
-        END IF;
+      IF (OLD.item_exclusive <> NEW.item_exclusive) THEN
+        PERFORM postComment('ChangeLog', 'I', NEW.item_id,
+                            CASE WHEN (NEW.item_exclusive) THEN 'Exclusive Changed from FALSE to TRUE'
+                                 ELSE 'Exclusive Changed from TRUE to FALSE'
+                            END );
+      END IF;
+      IF (OLD.item_config <> NEW.item_config) THEN
+        PERFORM postComment('ChangeLog', 'I', NEW.item_id,
+                            CASE WHEN (NEW.item_config) THEN 'Configured Changed from FALSE to TRUE'
+                                 ELSE 'Configured Changed from TRUE to FALSE'
+                            END );
+      END IF;
 
-        IF (OLD.item_listprice <> NEW.item_listprice) THEN
-          PERFORM postComment( _cmnttypeid, 'I', NEW.item_id,
-                               ( 'List Price Changed from "' || formatSalesPrice(OLD.item_listprice) ||
-                                 '" to "' || formatSalesPrice(NEW.item_listprice) || '"' ) );
-        END IF;
+      IF (OLD.item_listprice <> NEW.item_listprice) THEN
+        PERFORM postComment('ChangeLog', 'I', NEW.item_id, 'List Price',
+                            formatSalesPrice(OLD.item_listprice), formatSalesPrice(NEW.item_listprice));
+      END IF;
 
--- Add New stuff
+      IF (OLD.item_type <> NEW.item_type) THEN
+        PERFORM postComment('ChangeLog', 'I', NEW.item_id, 'Type',
+                            OLD.item_type, NEW.item_type);
+      END IF;
 
-        IF (OLD.item_type <> NEW.item_type) THEN
-          PERFORM postComment( _cmnttypeid, 'I', NEW.item_id,
-                               ( 'Type Changed from "' || OLD.item_type ||
-                                 '" to "' || NEW.item_type || '"' ) );
-        END IF;
+      IF (OLD.item_price_uom_id <> NEW.item_price_uom_id) THEN
+        PERFORM postComment('ChangeLog', 'I', NEW.item_id, 'Price UOM',
+                            (SELECT uom_name FROM uom WHERE uom_id=OLD.item_price_uom_id),
+                            (SELECT uom_name FROM uom WHERE uom_id=NEW.item_price_uom_id));
+      END IF;
 
-        IF (OLD.item_price_uom_id <> NEW.item_price_uom_id) THEN
-          PERFORM postComment( _cmnttypeid, 'I', NEW.item_id,
-                               ( 'Price UOM Changed from "' ||
-                                 (SELECT uom_name FROM uom WHERE uom_id=OLD.item_price_uom_id) ||
-                                 '" (' || CAST(OLD.item_price_uom_id AS TEXT) ||
-                                 ') to "' ||
-                                 (SELECT uom_name FROM uom WHERE uom_id=NEW.item_price_uom_id) ||
-                                 '" (' || CAST(NEW.item_price_uom_id AS TEXT) || ')' ) );
-        END IF;
+      IF (OLD.item_classcode_id <> NEW.item_classcode_id) THEN
+        PERFORM postComment('ChangeLog', 'I', NEW.item_id, 'Class Code',
+                            (SELECT classcode_code || '-' || classcode_descrip
+                             FROM classcode WHERE classcode_id=OLD.item_classcode_id),
+                            (SELECT classcode_code || '-' || classcode_descrip
+                             FROM classcode WHERE classcode_id=NEW.item_classcode_id));
+      END IF;
 
-        IF (OLD.item_classcode_id <> NEW.item_classcode_id) THEN
-          PERFORM postComment( _cmnttypeid, 'I', NEW.item_id,
-                               ( 'Class Code Changed from "' ||
-                                 (SELECT classcode_code || '-' || classcode_descrip FROM classcode WHERE classcode_id=OLD.item_classcode_id) ||
-                                 '" (' || CAST(OLD.item_classcode_id AS TEXT) ||
-                                 ') to "' ||
-                                 (SELECT classcode_code || '-' || classcode_descrip FROM classcode WHERE classcode_id=NEW.item_classcode_id) ||
-                                 '" (' || CAST(NEW.item_classcode_id AS TEXT) || ')' ) );
-        END IF;
+      IF (OLD.item_freightclass_id <> NEW.item_freightclass_id) THEN
+        PERFORM postComment('ChangeLog', 'I', NEW.item_id, 'Freight Class',
+                            (SELECT freightclass_code || '-' || freightclass_descrip
+                             FROM freightclass WHERE freightclass_id=OLD.item_freightclass_id),
+                            (SELECT freightclass_code || '-' || freightclass_descrip
+                             FROM freightclass WHERE freightclass_id=NEW.item_freightclass_id));
+      END IF;
 
-        IF (OLD.item_freightclass_id <> NEW.item_freightclass_id) THEN
-          PERFORM postComment( _cmnttypeid, 'I', NEW.item_id,
-                               ( 'Freight Class Changed from "' ||
-                                 (SELECT freightclass_code || '-' || freightclass_descrip FROM freightclass WHERE freightclass_id=OLD.item_freightclass_id) ||
-                                 '" (' || CAST(OLD.item_freightclass_id AS TEXT) ||
-                                 ') to "' ||
-                                 (SELECT freightclass_code || '-' || freightclass_descrip FROM freightclass WHERE freightclass_id=NEW.item_freightclass_id) ||
-                                 '" (' || CAST(NEW.item_freightclass_id AS TEXT) || ')' ) );
-        END IF;
+      IF (OLD.item_prodcat_id <> NEW.item_prodcat_id) THEN
+        PERFORM postComment('ChangeLog', 'I', NEW.item_id, 'Product Category',
+                            (SELECT prodcat_code || '-' || prodcat_descrip
+                             FROM prodcat WHERE prodcat_id=OLD.item_prodcat_id),
+                            (SELECT prodcat_code || '-' || prodcat_descrip
+                             FROM prodcat WHERE prodcat_id=NEW.item_prodcat_id));
+      END IF;
 
-        IF (OLD.item_prodcat_id <> NEW.item_prodcat_id) THEN
-          PERFORM postComment( _cmnttypeid, 'I', NEW.item_id,
-                               ( 'Product Category Changed from "' ||
-                                 (SELECT prodcat_code || '-' || prodcat_descrip FROM prodcat WHERE prodcat_id=OLD.item_prodcat_id) ||
-                                 '" (' || CAST(OLD.item_prodcat_id AS TEXT) ||
-                                 ') to "' ||
-                                 (SELECT prodcat_code || '-' || prodcat_descrip FROM prodcat WHERE prodcat_id=NEW.item_prodcat_id) ||
-                                 '" (' || CAST(NEW.item_prodcat_id AS TEXT) || ')' ) );
-        END IF;
+      IF (OLD.item_upccode <> NEW.item_upccode) THEN
+        PERFORM postComment('ChangeLog', 'I', NEW.item_id, 'UPC Code',
+                            OLD.item_upccode, NEW.item_upccode);
+      END IF;
 
-        IF (OLD.item_upccode <> NEW.item_upccode) THEN
-          PERFORM postComment( _cmnttypeid, 'I', NEW.item_id,
-                               ( 'UPC Code Changed from "' || OLD.item_upccode ||
-                                 '" to "' || NEW.item_upccode || '"' ) );
-        END IF;
+      IF (OLD.item_prodweight <> NEW.item_prodweight) THEN
+        PERFORM postComment('ChangeLog', 'I', NEW.item_id, 'Product Weight',
+                            formatWeight(OLD.item_prodweight), formatWeight(NEW.item_prodweight));
+      END IF;
 
-        IF (OLD.item_prodweight <> NEW.item_prodweight) THEN
-          PERFORM postComment( _cmnttypeid, 'I', NEW.item_id,
-                               ( 'Product Weight Changed from "' || formatWeight(OLD.item_prodweight) ||
-                                 '" to "' || formatWeight(NEW.item_prodweight) || '"' ) );
-        END IF;
+      IF (OLD.item_packweight <> NEW.item_packweight) THEN
+          PERFORM postComment('ChangeLog', 'I', NEW.item_id, 'Packaging Weight',
+                              formatWeight(OLD.item_packweight), formatWeight(NEW.item_packweight));
+      END IF;
 
-        IF (OLD.item_packweight <> NEW.item_packweight) THEN
-          PERFORM postComment( _cmnttypeid, 'I', NEW.item_id,
-                               ( 'Packaging Weight Changed from "' || formatWeight(OLD.item_packweight) ||
-                                 '" to "' || formatWeight(NEW.item_packweight) || '"' ) );
-        END IF;
+      IF (OLD.item_maxcost <> NEW.item_maxcost) THEN
+        PERFORM postComment('ChangeLog', 'I', NEW.item_id, 'Maximum Desired Cost',
+                            formatCost(OLD.item_maxcost), formatCost(NEW.item_maxcost));
+      END IF;
 
-        IF (OLD.item_maxcost <> NEW.item_maxcost) THEN
-          PERFORM postComment( _cmnttypeid, 'I', NEW.item_id,
-                               ( 'Maximum Desired Cost Changed from "' || formatCost(OLD.item_maxcost) ||
-                                 '" to "' || formatCost(NEW.item_maxcost) || '"' ) );
-        END IF;
-
-        IF (OLD.item_listcost <> NEW.item_listcost) THEN
-          PERFORM postComment( _cmnttypeid, 'I', NEW.item_id,
-                               ( 'List Cost Changed from "' || formatCost(OLD.item_listcost) ||
-                                 '" to "' || formatCost(NEW.item_listcost) || '"' ) );
-        END IF;
--- End changes
-
+      IF (OLD.item_listcost <> NEW.item_listcost) THEN
+        PERFORM postComment('ChangeLog', 'I', NEW.item_id, 'List Cost',
+                            formatCost(OLD.item_listcost), formatCost(NEW.item_listcost));
       END IF;
     END IF;
   END IF;
@@ -253,7 +222,7 @@ BEGIN
   RETURN NEW;
 
 END;
-$$ LANGUAGE 'plpgsql';
+$$ LANGUAGE plpgsql;
 
 DROP TRIGGER IF EXISTS itemAfterTrigger ON item;
 CREATE TRIGGER itemAfterTrigger
@@ -276,7 +245,7 @@ BEGIN
 
   RETURN OLD;
 END;
-$$ LANGUAGE 'plpgsql';
+$$ LANGUAGE plpgsql;
 
 SELECT dropIfExists('TRIGGER', 'itemAfterDeleteTrigger');
 CREATE TRIGGER itemAfterDeleteTrigger
@@ -311,7 +280,7 @@ BEGIN
   RETURN NEW;
 
 END;
-$$ LANGUAGE 'plpgsql';
+$$ LANGUAGE plpgsql;
 ALTER FUNCTION public._item_uom_check() OWNER TO admin;
 
 SELECT dropIfExists('TRIGGER', 'item_uom_check');

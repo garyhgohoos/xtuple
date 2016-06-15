@@ -64,9 +64,16 @@ BEGIN
 
   END IF;
 
+  -- Timestamps
+  IF (TG_OP = 'INSERT') THEN
+    NEW.crmacct_created := now();
+  ELSIF (TG_OP = 'UPDATE') THEN
+    NEW.crmacct_lastupdated := now();
+  END IF;
+
   RETURN NEW;
 END;
-$$ LANGUAGE 'plpgsql';
+$$ LANGUAGE plpgsql;
 
 DROP TRIGGER IF EXISTS crmacctBeforeTrigger ON crmacct;
 CREATE TRIGGER crmacctBeforeTrigger
@@ -79,7 +86,6 @@ CREATE OR REPLACE FUNCTION _crmacctAfterTrigger () RETURNS TRIGGER AS $$
 -- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple.
 -- See www.xtuple.com/CPAL for the full text of the software license.
 DECLARE
-  _cmnttypeid INTEGER;
   _gotpriv    BOOLEAN;
 
 BEGIN
@@ -218,18 +224,13 @@ BEGIN
 
   END IF;
 
-  SELECT cmnttype_id INTO _cmnttypeid
-    FROM cmnttype
-   WHERE (cmnttype_name='ChangeLog');
-  IF (_cmnttypeid IS NOT NULL) THEN
-    IF (TG_OP = 'INSERT') THEN
-      PERFORM postComment(_cmnttypeid, 'CRMA', NEW.crmacct_id,
-                          ('Created by ' || getEffectiveXtUser()));
+  IF (TG_OP = 'INSERT') THEN
+    PERFORM postComment('ChangeLog', 'CRMA', NEW.crmacct_id,
+                        ('Created by ' || getEffectiveXtUser()));
 
-    ELSIF (TG_OP = 'DELETE') THEN
-      PERFORM postComment(_cmnttypeid, 'CRMA', OLD.crmacct_id,
-                          'Deleted "' || OLD.crmacct_number || '"');
-    END IF;
+  ELSIF (TG_OP = 'DELETE') THEN
+    PERFORM postComment('ChangeLog', 'CRMA', OLD.crmacct_id,
+                        'Deleted "' || OLD.crmacct_number || '"');
   END IF;
 
   IF (TG_OP = 'DELETE') THEN
@@ -238,7 +239,7 @@ BEGIN
 
   RETURN NEW;
 END;
-$$ LANGUAGE 'plpgsql';
+$$ LANGUAGE plpgsql;
 
 DROP TRIGGER IF EXISTS crmacctAfterTrigger ON crmacct;
 CREATE TRIGGER crmacctAfterTrigger
@@ -261,7 +262,7 @@ BEGIN
 
   RETURN OLD;
 END;
-$$ LANGUAGE 'plpgsql';
+$$ LANGUAGE plpgsql;
 
 SELECT dropIfExists('TRIGGER', 'crmacctAfterDeleteTrigger');
 CREATE TRIGGER crmacctAfterDeleteTrigger

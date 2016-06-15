@@ -2,7 +2,6 @@ CREATE OR REPLACE FUNCTION _itemsiteTrigger () RETURNS TRIGGER AS $$
 -- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple.
 -- See www.xtuple.com/CPAL for the full text of the software license.
 DECLARE
-  _cmnttypeid INTEGER;
   _r RECORD;
 
 BEGIN
@@ -52,82 +51,71 @@ BEGIN
     RAISE EXCEPTION 'This transaction results in a negative itemsite value.  Itemsite (%) is set to use average costing and is not allowed to have a negative value.', 'ID: ' || NEW.itemsite_id || ', Item: ' || _r.item_number;  END IF;
 
 --  Handle the ChangeLog
-  IF ( SELECT (metric_value='t')
-       FROM metric
-       WHERE (metric_name='ItemSiteChangeLog') ) THEN
+  IF (fetchMetricBool('ItemSiteChangeLog')) THEN
+    IF (TG_OP = 'INSERT') THEN
+      PERFORM postComment('ChangeLog', 'IS', NEW.itemsite_id, 'Created');
 
---  Cache the cmnttype_id for ChangeLog
-    SELECT cmnttype_id INTO _cmnttypeid
-    FROM cmnttype
-    WHERE (cmnttype_name='ChangeLog');
-    IF (FOUND) THEN
-      IF (TG_OP = 'INSERT') THEN
-        PERFORM postComment(_cmnttypeid, 'IS', NEW.itemsite_id, 'Created');
+    ELSIF (TG_OP = 'UPDATE') THEN
 
-      ELSIF (TG_OP = 'UPDATE') THEN
+      IF (OLD.itemsite_plancode_id <> NEW.itemsite_plancode_id) THEN
+        PERFORM postComment('ChangeLog', 'IS', NEW.itemsite_id, 'Planner Code',
+                            (SELECT plancode_code FROM plancode WHERE plancode_id=OLD.itemsite_plancode_id),
+                            (SELECT plancode_code FROM plancode WHERE plancode_id=NEW.itemsite_plancode_id));
+      END IF;
 
-        IF (OLD.itemsite_plancode_id <> NEW.itemsite_plancode_id) THEN
-          PERFORM postComment( _cmnttypeid, 'IS', NEW.itemsite_id,
-                               ( 'Planner Code Changed from "' || oldplancode.plancode_code ||
-                                 '" to "' || newplancode.plancode_code || '"' ) )
-          FROM plancode AS oldplancode, plancode AS newplancode
-          WHERE ( (oldplancode.plancode_id=OLD.itemsite_plancode_id)
-           AND (newplancode.plancode_id=NEW.itemsite_plancode_id) );
-        END IF;
+      IF (NEW.itemsite_reorderlevel <> OLD.itemsite_reorderlevel) THEN
+        PERFORM postComment('ChangeLog', 'IS', NEW.itemsite_id, 'Reorder Level',
+                            formatQty(OLD.itemsite_reorderlevel), formatQty(NEW.itemsite_reorderlevel));
+      END IF;
 
-        IF (NEW.itemsite_reorderlevel <> OLD.itemsite_reorderlevel) THEN
-          PERFORM postComment( _cmnttypeid, 'IS', NEW.itemsite_id,
-                               ( 'Reorder Level Changed from ' || formatQty(OLD.itemsite_reorderlevel) ||
-                                 ' to ' || formatQty(NEW.itemsite_reorderlevel ) ) );
-        END IF;
+      IF (NEW.itemsite_ordertoqty <> OLD.itemsite_ordertoqty) THEN
+        PERFORM postComment('ChangeLog', 'IS', NEW.itemsite_id, 'Order Up To',
+                            formatQty(OLD.itemsite_ordertoqty), formatQty(NEW.itemsite_ordertoqty));
+      END IF;
 
-        IF (NEW.itemsite_ordertoqty <> OLD.itemsite_ordertoqty) THEN
-          PERFORM postComment( _cmnttypeid, 'IS', NEW.itemsite_id,
-                               ( 'Order Up To Changed from ' || formatQty(OLD.itemsite_ordertoqty) ||
-                                 ' to ' || formatQty(NEW.itemsite_ordertoqty ) ) );
-        END IF;
+      IF (NEW.itemsite_leadtime <> OLD.itemsite_leadtime) THEN
+        PERFORM postComment('ChangeLog', 'IS', NEW.itemsite_id, 'Lead Time',
+                            formatQty(OLD.itemsite_leadtime), formatQty(NEW.itemsite_leadtime));
+      END IF;
 
-        IF (NEW.itemsite_leadtime <> OLD.itemsite_leadtime) THEN
-          PERFORM postComment( _cmnttypeid, 'IS', NEW.itemsite_id,
-                               ( 'Itemsite Leadtime Changed from ' || formatQty(OLD.itemsite_leadtime) ||
-                                 ' to ' || formatQty(NEW.itemsite_leadtime ) ) );
-        END IF;
+      IF (NEW.itemsite_abcclass <> OLD.itemsite_abcclass) THEN
+        PERFORM postComment('ChangeLog', 'IS', NEW.itemsite_id, 'ABC Class',
+                            COALESCE(OLD.itemsite_abcclass, 'None'), COALESCE(NEW.itemsite_abcclass,'None'));
+      END IF;
 
-        IF (NEW.itemsite_abcclass <> OLD.itemsite_abcclass) THEN
-          PERFORM postComment( _cmnttypeid, 'IS', NEW.itemsite_id,
-                               ( 'Itemsite ABC Class Changed from ' || COALESCE(OLD.itemsite_abcclass, 'None') ||
-                                 ' to ' || COALESCE(NEW.itemsite_abcclass,'None') ) );
-        END IF;
+      IF (NEW.itemsite_controlmethod <> OLD.itemsite_controlmethod) THEN
+        PERFORM postComment('ChangeLog', 'IS', NEW.itemsite_id, 'Control Method',
+                            COALESCE(OLD.itemsite_controlmethod,'None'), COALESCE(NEW.itemsite_controlmethod,'None'));
+      END IF;
 
-        IF (NEW.itemsite_controlmethod <> OLD.itemsite_controlmethod) THEN
-          PERFORM postComment( _cmnttypeid, 'IS', NEW.itemsite_id,
-                               ( 'Itemsite Control Method Changed from ' || COALESCE(OLD.itemsite_controlmethod,'None') ||
-                                 ' to ' || COALESCE(NEW.itemsite_controlmethod,'None') ) );
-        END IF;
-
-        IF (OLD.itemsite_sold <> NEW.itemsite_sold) THEN
-          PERFORM postComment( _cmnttypeid, 'IS', NEW.itemsite_id,
+      IF (OLD.itemsite_sold <> NEW.itemsite_sold) THEN
+        PERFORM postComment('ChangeLog', 'IS', NEW.itemsite_id,
             CASE WHEN (NEW.itemsite_sold) THEN 'Sold Changed from FALSE to TRUE'
                                           ELSE 'Sold Changed from TRUE to FALSE'
-            END );
-        END IF;
+            END);
+      END IF;
 
-        IF (OLD.itemsite_active <> NEW.itemsite_active) THEN
-          IF (NEW.itemsite_active) THEN
-            PERFORM postComment(_cmnttypeid, 'IS', NEW.itemsite_id, 'Activated');
-          ELSE
-            PERFORM postComment(_cmnttypeid, 'IS', NEW.itemsite_id, 'Deactivated');
-          END IF;
+      IF (OLD.itemsite_active <> NEW.itemsite_active) THEN
+        IF (NEW.itemsite_active) THEN
+          PERFORM postComment('ChangeLog', 'IS', NEW.itemsite_id, 'Activated');
+        ELSE
+          PERFORM postComment('ChangeLog', 'IS', NEW.itemsite_id, 'Deactivated');
         END IF;
-
       END IF;
     END IF;
+  END IF;
+
+  -- Timestamps
+  IF (TG_OP = 'INSERT') THEN
+    NEW.itemsite_created := now();
+  ELSIF (TG_OP = 'UPDATE') THEN
+    NEW.itemsite_lastupdated := now();
   END IF;
 
   RETURN NEW;
 
 END;
-$$ LANGUAGE 'plpgsql';
+$$ LANGUAGE plpgsql;
 
 SELECT dropIfExists('trigger', 'itemsiteTrigger');
 CREATE TRIGGER itemsiteTrigger BEFORE INSERT OR UPDATE ON itemsite FOR EACH ROW EXECUTE PROCEDURE _itemsiteTrigger();
@@ -420,7 +408,7 @@ BEGIN
   RETURN NEW;
 
 END;
-$$ LANGUAGE 'plpgsql';
+$$ LANGUAGE plpgsql;
 
 SELECT dropIfExists('trigger', 'itemsiteAfterTrigger');
 CREATE TRIGGER itemsiteAfterTrigger AFTER INSERT OR UPDATE ON itemsite FOR EACH ROW EXECUTE PROCEDURE _itemsiteAfterTrigger();

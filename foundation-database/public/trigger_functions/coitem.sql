@@ -16,7 +16,7 @@ BEGIN
     RAISE EXCEPTION 'You do not have privileges to alter a Sales Order.';
   END IF;
 
-  IF ( SELECT fetchMetricBool('SalesOrderChangeLog') ) THEN
+  IF (fetchMetricBool('SalesOrderChangeLog')) THEN
     _changelog := TRUE;
   END IF;
 
@@ -116,18 +116,16 @@ BEGIN
          OR     (OLD.coitem_scheddate <= (CURRENT_DATE + itemsite_eventfence)) ) );
 
       IF (_changelog) THEN
-	PERFORM postComment( 'ChangeLog', 'SI', NEW.coitem_id,
-			     ( 'Changed Qty. Ordered from ' || formatQty(OLD.coitem_qtyord) ||
-			       ' to ' || formatQty(NEW.coitem_qtyord) ) );
+	PERFORM postComment( 'ChangeLog', 'SI', NEW.coitem_id, 'Qty. Ordered',
+			      formatQty(OLD.coitem_qtyord), formatQty(NEW.coitem_qtyord) );
       END IF;
 
     END IF;
 
     IF (NEW.coitem_price <> OLD.coitem_price) THEN
       IF (_changelog) THEN
-	PERFORM postComment( 'ChangeLog', 'SI', NEW.coitem_id,
-			     ( 'Changed Unit Price from ' || formatPrice(OLD.coitem_price) ||
-			       ' to ' || formatPrice(NEW.coitem_price) ) );
+	PERFORM postComment( 'ChangeLog', 'SI', NEW.coitem_id, 'Unit Price',
+			      formatPrice(OLD.coitem_price), formatPrice(NEW.coitem_price) );
       END IF;
 
     END IF;
@@ -143,15 +141,14 @@ BEGIN
          OR     (OLD.coitem_scheddate <= (CURRENT_DATE + itemsite_eventfence)) ) );
 
       IF (_changelog) THEN
-	PERFORM postComment( 'ChangeLog', 'SI', NEW.coitem_id,
-			     ( 'Changed Sched. Date from ' || formatDate(OLD.coitem_scheddate) ||
-			       ' to ' || formatDate(NEW.coitem_scheddate)) );
+	PERFORM postComment( 'ChangeLog', 'SI', NEW.coitem_id, 'Sched. Date',
+			      formatDate(OLD.coitem_scheddate), formatDate(NEW.coitem_scheddate) );
       END IF;
 
     END IF;
 
     IF ((NEW.coitem_status = 'C') AND (OLD.coitem_status <> 'C')) THEN
-      NEW.coitem_closedate = CURRENT_TIMESTAMP;
+      NEW.coitem_closedate := now();
       NEW.coitem_close_username = getEffectiveXtUser();
       NEW.coitem_qtyreserved := 0;
 
@@ -204,7 +201,12 @@ BEGIN
 
   END IF;
 
-  NEW.coitem_lastupdated = CURRENT_TIMESTAMP;
+  -- Timestamps
+  IF (TG_OP = 'INSERT') THEN
+    NEW.coitem_created := now();
+  ELSIF (TG_OP = 'UPDATE') THEN
+    NEW.coitem_lastupdated := now();
+  END IF;
 
   -- Handle status for header
   IF (TG_OP = 'UPDATE') THEN
@@ -228,7 +230,7 @@ BEGIN
   RETURN NEW;
 
 END;
-$$ LANGUAGE 'plpgsql';
+$$ LANGUAGE plpgsql;
 
 SELECT dropIfExists('TRIGGER', 'soitemTrigger');
 CREATE TRIGGER soitemTrigger
@@ -417,7 +419,7 @@ BEGIN
 
   RETURN NEW;
 END;
-$$ LANGUAGE 'plpgsql';
+$$ LANGUAGE plpgsql;
 
 SELECT dropIfExists('TRIGGER', 'soitemBeforeTrigger');
 CREATE TRIGGER soitemBeforeTrigger
@@ -687,7 +689,7 @@ BEGIN
 
   RETURN NEW;
 END;
-$$ LANGUAGE 'plpgsql';
+$$ LANGUAGE plpgsql;
 
 SELECT dropIfExists('TRIGGER', 'soitemAfterTrigger');
 CREATE TRIGGER soitemAfterTrigger
@@ -776,7 +778,7 @@ BEGIN
 
   RETURN OLD;
 END;
-$$ LANGUAGE 'plpgsql';
+$$ LANGUAGE plpgsql;
 
 SELECT dropIfExists('TRIGGER', 'soitemBeforeDeleteTrigger');
 CREATE TRIGGER soitemBeforeDeleteTrigger
@@ -811,7 +813,7 @@ BEGIN
 
   RETURN OLD;
 END;
-$$ LANGUAGE 'plpgsql';
+$$ LANGUAGE plpgsql;
 
 SELECT dropIfExists('TRIGGER', 'soitemAfterDeleteTrigger');
 CREATE TRIGGER soitemAfterDeleteTrigger
@@ -848,7 +850,7 @@ BEGIN
 
   RETURN NEW;
 END;
-$$ LANGUAGE 'plpgsql';
+$$ LANGUAGE plpgsql;
 
 SELECT dropIfExists('TRIGGER', 'coitemBeforeImpTaxTypeDef');
 CREATE TRIGGER coitemBeforeImpTaxTypeDef

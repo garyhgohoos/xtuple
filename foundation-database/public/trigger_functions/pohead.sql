@@ -2,7 +2,6 @@ CREATE OR REPLACE FUNCTION _poheadTrigger() RETURNS TRIGGER AS $$
 -- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple.
 -- See www.xtuple.com/CPAL for the full text of the software license.
 DECLARE
-  _cmnttypeid 	INTEGER;
   _check	BOOLEAN;
   _maint        BOOLEAN := TRUE;
 
@@ -45,50 +44,34 @@ BEGIN
     END IF;
   END IF;
 
-  IF ( SELECT (metric_value='t')
-       FROM metric
-       WHERE (metric_name='POChangeLog') ) THEN
+  IF (fetchMetricBool('POChangeLog')) THEN
+    IF (TG_OP = 'INSERT') THEN
+      PERFORM postComment('ChangeLog', 'P', NEW.pohead_id, 'Created');
 
---  Cache the cmnttype_id for ChangeLog
-    SELECT cmnttype_id INTO _cmnttypeid
-    FROM cmnttype
-    WHERE (cmnttype_name='ChangeLog');
-    IF (FOUND) THEN
-      IF (TG_OP = 'INSERT') THEN
-        PERFORM postComment(_cmnttypeid, 'P', NEW.pohead_id, 'Created');
-
-      ELSIF (TG_OP = 'UPDATE') THEN
-        IF (OLD.pohead_terms_id <> NEW.pohead_terms_id) THEN
-          PERFORM postComment( _cmnttypeid, 'P', NEW.pohead_id,
-                               ('Terms Changed from "' || oldterms.terms_code || '" to "' || newterms.terms_code || '"') )
-          FROM terms AS oldterms, terms AS newterms
-          WHERE ( (oldterms.terms_id=OLD.pohead_terms_id)
-           AND (newterms.terms_id=NEW.pohead_terms_id) );
-        END IF;
-
-      ELSIF (TG_OP = 'DELETE') THEN
-        DELETE FROM docass WHERE docass_source_id = OLD.pohead_id AND docass_source_type = 'P';
-        DELETE FROM docass WHERE docass_target_id = OLD.pohead_id AND docass_target_type = 'P';
-
-        DELETE FROM comment
-        WHERE ( (comment_source='P')
-         AND (comment_source_id=OLD.pohead_id) );
+    ELSIF (TG_OP = 'UPDATE') THEN
+      IF (OLD.pohead_terms_id <> NEW.pohead_terms_id) THEN
+        PERFORM postComment('ChangeLog', 'P', NEW.pohead_id, 'Terms',
+                            (SELECT terms_code FROM terms WHERE terms_id=OLD.pohead_terms_id),
+                            (SELECT terms_code FROM terms WHERE terms_id=NEW.pohead_terms_id));
       END IF;
     END IF;
   END IF;
 
-  IF (TG_OP = 'DELETE') THEN
-    RETURN OLD;
-  ELSE
-    RETURN NEW;
+  -- Timestamps
+  IF (TG_OP = 'INSERT') THEN
+    NEW.pohead_created := now();
+  ELSIF (TG_OP = 'UPDATE') THEN
+    NEW.pohead_lastupdated := now();
   END IF;
 
+  RETURN NEW;
+
 END;
-$$ LANGUAGE 'plpgsql';
+$$ LANGUAGE plpgsql;
 
 DROP TRIGGER IF EXISTS poheadTrigger ON pohead;
 CREATE TRIGGER poheadTrigger
-  BEFORE INSERT OR UPDATE OR DELETE
+  BEFORE INSERT OR UPDATE
   ON pohead
   FOR EACH ROW
   EXECUTE PROCEDURE _poheadTrigger();
@@ -116,7 +99,7 @@ BEGIN
 
   RETURN NEW;
 END;
-$$ LANGUAGE 'plpgsql';
+$$ LANGUAGE plpgsql;
 
 SELECT dropifexists('TRIGGER','poheadTriggerAfter');
 CREATE TRIGGER poheadTriggerAfter
@@ -132,14 +115,20 @@ DECLARE
 
 BEGIN
 
-  DELETE
-  FROM charass
+  DELETE FROM charass
   WHERE charass_target_type = 'PO'
     AND charass_target_id = OLD.pohead_id;
 
+  DELETE FROM docass WHERE docass_source_id = OLD.pohead_id AND docass_source_type = 'P';
+  DELETE FROM docass WHERE docass_target_id = OLD.pohead_id AND docass_target_type = 'P';
+
+  DELETE FROM comment
+  WHERE ( (comment_source='P')
+   AND (comment_source_id=OLD.pohead_id) );
+
   RETURN OLD;
 END;
-$$ LANGUAGE 'plpgsql';
+$$ LANGUAGE plpgsql;
 
 SELECT dropIfExists('TRIGGER', 'poheadAfterDeleteTrigger');
 CREATE TRIGGER poheadAfterDeleteTrigger

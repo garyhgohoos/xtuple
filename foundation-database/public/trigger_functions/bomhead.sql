@@ -12,9 +12,9 @@ BEGIN
 
   -- Timestamps
   IF (TG_OP = 'INSERT') THEN
-    NEW.bomhead_created = CURRENT_TIMESTAMP;
+    NEW.bomhead_created := now();
   ELSIF (TG_OP = 'UPDATE') THEN
-    NEW.bomhead_last_modified = CURRENT_TIMESTAMP;
+    NEW.bomhead_lastupdated := now();
   END IF;
 
   RETURN NEW;

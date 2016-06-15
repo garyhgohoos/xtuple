@@ -6,3 +6,6 @@ if (compareVersion(fetchMetricText('ServerVersion'), '4.7.0') = -1) then
   alter table itemsite drop column itemsite_nnqoh cascade;
 end if;
 end$$;
+
+select xt.add_column('itemsite', 'itemsite_created',      'TIMESTAMP WITH TIME ZONE', NULL, 'public');
+select xt.add_column('itemsite', 'itemsite_lastupdated',  'TIMESTAMP WITH TIME ZONE', NULL, 'public');

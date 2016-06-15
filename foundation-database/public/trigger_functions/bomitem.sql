@@ -150,9 +150,9 @@ BEGIN
 
   -- Timestamps
   IF (TG_OP = 'INSERT') THEN
-    NEW.bomitem_created = CURRENT_TIMESTAMP;
+    NEW.bomitem_created := now();
   ELSIF (TG_OP = 'UPDATE') THEN
-    NEW.bomitem_last_modified = CURRENT_TIMESTAMP;
+    NEW.bomitem_lastupdated := now();
   END IF;
 
   RETURN NEW;

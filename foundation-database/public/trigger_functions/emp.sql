@@ -40,9 +40,16 @@ BEGIN
     NEW.emp_username = LOWER(NEW.emp_code);
   END IF;
 
+  -- Timestamps
+  IF (TG_OP = 'INSERT') THEN
+    NEW.emp_created := now();
+  ELSIF (TG_OP = 'UPDATE') THEN
+    NEW.emp_lastupdated := now();
+  END IF;
+
   RETURN NEW;
 END;
-$$ LANGUAGE 'plpgsql';
+$$ LANGUAGE plpgsql;
 
 SELECT dropIfExists('TRIGGER', 'empBeforeTrigger');
 CREATE TRIGGER empBeforeTrigger
@@ -55,7 +62,6 @@ CREATE OR REPLACE FUNCTION _empAfterTrigger () RETURNS TRIGGER AS $$
 -- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple.
 -- See www.xtuple.com/CPAL for the full text of the software license.
 DECLARE
-  _cmnttypeid     INTEGER;
   _newcrmacctname TEXT;
 
 BEGIN
@@ -93,61 +99,49 @@ BEGIN
   END IF;
 
   IF (fetchMetricBool('EmployeeChangeLog')) THEN
-    SELECT cmnttype_id INTO _cmnttypeid
-      FROM cmnttype
-     WHERE (cmnttype_name='ChangeLog');
+    IF (TG_OP = 'INSERT') THEN
+      PERFORM postComment('ChangeLog', 'EMP', NEW.emp_id, 'Created');
 
-    IF (_cmnttypeid IS NOT NULL) THEN
-      IF (TG_OP = 'INSERT') THEN
-        PERFORM postComment(_cmnttypeid, 'EMP', NEW.emp_id, 'Created');
+    ELSIF (TG_OP = 'UPDATE') THEN
 
-      ELSIF (TG_OP = 'UPDATE') THEN
-
-        IF (OLD.emp_number <> NEW.emp_number) THEN
-          PERFORM postComment(_cmnttypeid, 'EMP', NEW.emp_id,
-                              ('Number Changed from "' || OLD.emp_number ||
-                               '" to "' || NEW.emp_number || '"'));
-        END IF;
-
-        IF (OLD.emp_code <> NEW.emp_code) THEN
-          PERFORM postComment(_cmnttypeid, 'EMP', NEW.emp_id,
-                              ('Code Changed from "' || OLD.emp_code ||
-                               '" to "' || NEW.emp_code || '"'));
-        END IF;
-
-        IF (OLD.emp_active <> NEW.emp_active) THEN
-          PERFORM postComment(_cmnttypeid, 'EMP', NEW.emp_id,
-                              CASE WHEN NEW.emp_active THEN 'Activated'
-                                   ELSE 'Deactivated' END);
-        END IF;
-
-        IF (COALESCE(OLD.emp_dept_id, -1) <> COALESCE(NEW.emp_dept_id, -1)) THEN
-          PERFORM postComment(_cmnttypeid, 'EMP', NEW.emp_id,
-                              ('Department Changed from "' ||
-                               COALESCE((SELECT dept_number FROM dept
-                                          WHERE dept_id=OLD.emp_dept_id), '')
-                               || '" to "' ||
-                               COALESCE((SELECT dept_number FROM dept
-                                          WHERE dept_id=NEW.emp_dept_id), '') || '"'));
-        END IF;
-
-        IF (COALESCE(OLD.emp_shift_id, -1) <> COALESCE(NEW.emp_shift_id, -1)) THEN
-          PERFORM postComment(_cmnttypeid, 'EMP', NEW.emp_id,
-                              ('Shift Changed from "' ||
-                               COALESCE((SELECT shift_number FROM shift
-                                          WHERE shift_id=OLD.emp_shift_id), '')
-                               || '" to "' ||
-                               COALESCE((SELECT shift_number FROM shift
-                                          WHERE shift_id=NEW.emp_shift_id), '') || '"'));
-        END IF;
-
+      IF (OLD.emp_number <> NEW.emp_number) THEN
+        PERFORM postComment('ChangeLog', 'EMP', NEW.emp_id, 'Number',
+                            OLD.emp_number, NEW.emp_number);
       END IF;
+
+      IF (OLD.emp_code <> NEW.emp_code) THEN
+        PERFORM postComment('ChangeLog', 'EMP', NEW.emp_id, 'Code',
+                            OLD.emp_code, NEW.emp_code);
+      END IF;
+
+      IF (OLD.emp_active <> NEW.emp_active) THEN
+        PERFORM postComment('ChangeLog', 'EMP', NEW.emp_id,
+                            CASE WHEN NEW.emp_active THEN 'Activated'
+                                 ELSE 'Deactivated' END);
+      END IF;
+
+      IF (COALESCE(OLD.emp_dept_id, -1) <> COALESCE(NEW.emp_dept_id, -1)) THEN
+        PERFORM postComment('ChangeLog', 'EMP', NEW.emp_id, 'Department',
+                            COALESCE((SELECT dept_number FROM dept
+                                       WHERE dept_id=OLD.emp_dept_id), ''),
+                            COALESCE((SELECT dept_number FROM dept
+                                       WHERE dept_id=NEW.emp_dept_id), ''));
+      END IF;
+
+      IF (COALESCE(OLD.emp_shift_id, -1) <> COALESCE(NEW.emp_shift_id, -1)) THEN
+        PERFORM postComment('ChangeLog', 'EMP', NEW.emp_id, 'Shift',
+                            COALESCE((SELECT shift_number FROM shift
+                                       WHERE shift_id=OLD.emp_shift_id), ''),
+                            COALESCE((SELECT shift_number FROM shift
+                                       WHERE shift_id=NEW.emp_shift_id), ''));
+      END IF;
+
     END IF;
   END IF;
 
   RETURN NEW;
 END;
-$$ LANGUAGE 'plpgsql';
+$$ LANGUAGE plpgsql;
 
 SELECT dropIfExists('TRIGGER', 'empAfterTrigger');
 CREATE TRIGGER empAfterTrigger
@@ -175,7 +169,7 @@ BEGIN
 
   RETURN OLD;
 END;
-$$ LANGUAGE 'plpgsql';
+$$ LANGUAGE plpgsql;
 
 SELECT dropIfExists('TRIGGER', 'empBeforeDeleteTrigger');
 CREATE TRIGGER empBeforeDeleteTrigger
@@ -189,10 +183,8 @@ CREATE OR REPLACE FUNCTION _empAfterDeleteTrigger() RETURNS TRIGGER AS $$
 -- See www.xtuple.com/CPAL for the full text of the software license.
 BEGIN
   IF (fetchMetricBool('EmployeeChangeLog')) THEN
-    PERFORM postComment(cmnttype_id, 'EMP', OLD.emp_id,
-                        ('Deleted "' || OLD.emp_code || '"'))
-      FROM cmnttype
-     WHERE (cmnttype_name='ChangeLog');
+    PERFORM postComment('ChangeLog', 'EMP', OLD.emp_id,
+                        ('Deleted "' || OLD.emp_code || '"'));
   END IF;
 
   DELETE
@@ -202,7 +194,7 @@ BEGIN
 
   RETURN OLD;
 END;
-$$ LANGUAGE 'plpgsql';
+$$ LANGUAGE plpgsql;
 
 SELECT dropIfExists('TRIGGER', 'empAfterDeleteTrigger');
 CREATE TRIGGER empAfterDeleteTrigger
