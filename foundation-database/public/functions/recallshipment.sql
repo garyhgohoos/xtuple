@@ -167,8 +167,7 @@ BEGIN
                      AND (sub.coitem_subnumber > 0)
                    GROUP BY cobill_id, cobill_qty
     LOOP
-      UPDATE cobill SET cobill_qty = 0.0
-      WHERE (cobill_id=_cobill.cobill_id);
+      DELETE FROM cobill WHERE cobill_id = _cobill.cobill_id;
     END LOOP;
 
   ELSEIF (_shiphead.shiphead_order_type = 'TO') THEN

@@ -35,314 +35,152 @@ select xt.install_js('XM','ItemSite','xtuple', $$
     but also xDruple extension XM.XdProduct.xdProductFetch() call like this:
     XM.ItemSitePrivate.fetch("XM.XdProduct", "xdruple.xd_commerce_product", query, 'product_id', 'id');
   */
-  XM.ItemSitePrivate.fetch = function (recordType, backingType, query, backingTypeJoinColumn, idColumn) {
-    query = query || {};
-    backingTypeJoinColumn = backingTypeJoinColumn || 'itemsite_item_id';
-    idColumn = idColumn || 'itemsite_id';
+  XM.ItemSitePrivate.fetch = function fetch (recordType, query, keySearchAttrMap) {
+    var data = Object.create(XT.Data);
+    var nameSpace = recordType.beforeDot();
+    var type = recordType.afterDot();
+    var includeNumberBarcodeAliasParam = false;
+    var payload = {
+      username: XT.username,
+      nameSpace: nameSpace,
+      type: type,
+      query: query
+    };
 
-    var data = Object.create(XT.Data),
-      nameSpace = recordType.beforeDot(),
-      type = recordType.afterDot(),
-      tableNamespace = backingType.beforeDot(),
-      table = backingType.afterDot(),
-      orderBy = query.orderBy,
-      orm = data.fetchOrm(nameSpace, type),
-      pkey = XT.Orm.primaryKey(orm),
-      nkey = XT.Orm.naturalKey(orm),
-      keyColumn = XT.Orm.primaryKey(orm, true),
-      customerId = null,
-      accountId = -1,
-      shiptoId,
-      effectiveDate = new Date(),
-      vendorId = null,
-      limit = query.rowLimit ? 'limit ' + Number(query.rowLimit) : '',
-      offset = query.rowOffset ? 'offset ' + Number(query.rowOffset) : '',
-      clause,
-      ret = {
-        nameSpace: nameSpace,
-        type: type
-      },
-      itemJoinMatches,
-      itemJoinTable,
-      joinTables = [],
-      keySearch = false,
-      extra = "",
-      qry,
-      counter = 1,
-      ids = [],
-      idParams = [],
-      etags,
-      sqlCount,
-      sql1 = 'select pt1.id ' +
-             'from ( ' +
-             'select t1.%3$I as id{groupColumns} ' +
-             'from %1$I.%2$I t1 {joins} ' +
-             'where {conditions} {extra}',
-      sql2 = 'select * from %1$I.%2$I where id in ({ids}) {orderBy}';
-
-    /* Handle special parameters */
     if (query.parameters) {
-      query.parameters = query.parameters.filter(function (param) {
-        var result = false;
+      var customerId = null;
+      var accountId = -1;
+      var shiptoId = null;
+      var effectiveDate = new Date();
+      var vendorId = null;
 
-        /* Over-ride usual search behavior */
+      payload.query.parameters = query.parameters.filter(function (param) {
+        /* Over-ride usual search behavior by adding parameters. */
         if (param.keySearch) {
-          keySearch = param.value;
-          sql1 += ' and t1.%4$I in (select item_id from item where item_number ~^ ${p1} or item_upccode ~^ ${p1}) ' +
-            'union ' +
-            'select t1.%3$I as id{groupColumns} ' +
-            'from %1$I.%2$I t1 {joins} ' +
-            ' join itemalias on t1.%4$I=itemalias_item_id ' +
-            '   and itemalias_crmacct_id is null ' +
-            'where {conditions} {extra} ' +
-            ' and (itemalias_number ~^ ${p1}) ' +
-            'union ' +
-            'select t1.%3$I as id{groupColumns}  ' +
-            'from %1$I.%2$I t1 {joins} ' +
-            ' join itemalias on t1.%4$I=itemalias_item_id ' +
-            '   and itemalias_crmacct_id={accountId} ' +
-            'where {conditions} {extra} ' +
-            ' and (itemalias_number ~^ ${p1}) ';
+
+          includeNumberBarcodeAliasParam = {
+            attribute: keySearchAttrMap.concat(param.attribute).unique(),
+            operator: 'BEGINS_WITH',
+            value: param.value
+          };
+
           return false;
         }
 
-        switch (param.attribute)
-        {
-        case "customer":
-          customerNumber = param.value;
-          customerId = data.getId(data.fetchOrm('XM', 'CustomerProspectRelation'), param.value);
-          accountId = data.getId(data.fetchOrm('XM', 'AccountRelation'), param.value);
-          break;
-        case "shipto":
-          shiptoId = data.getId(data.fetchOrm('XM', 'CustomerShipto'), param.value);
-          break;
-        case "effectiveDate":
-          effectiveDate = param.value;
-          break;
-        case "vendor":
-          vendorId = data.getId(data.fetchOrm('XM', 'VendorRelation'), param.value);
-          break;
-        default:
-          result = true;
+        switch (param.attribute) {
+          case "customer":
+            customerId = XT.Data.getId(XT.Data.fetchOrm('XM', 'CustomerProspectRelation'), param.value);
+            accountId = XT.Data.getId(XT.Data.fetchOrm('XM', 'AccountRelation'), param.value);
+            return false;
+          case "shipto":
+            shiptoId = XT.Data.getId(XT.Data.fetchOrm('XM', 'CustomerShipto'), param.value);
+            return false;
+          case "effectiveDate":
+            effectiveDate = param.value;
+            return false;
+          case "vendor":
+            vendorId = XT.Data.getId(XT.Data.fetchOrm('XM', 'VendorRelation'), param.value);
+            return false;
+          default:
+            return true;
         }
-        return result;
+
+        return true;
       });
-    }
 
-    clause = data.buildClause(nameSpace, type, query.parameters, orderBy);
+      if (includeNumberBarcodeAliasParam) {
+        data.addWhereClauseDynamicExtension(nameSpace, type, function (originPayload) {
+          var extnSql = '';
+          var literalIndex = data.whereLiteralValues.length + 1;
+          var whereClause = data.buildWhereClause(originPayload, includeNumberBarcodeAliasParam, literalIndex);
 
-    /* Check if public.item is already joined through clause.joins. */
-    if (clause.joins && clause.joins.length) {
-      itemJoinMatches = clause.joins.match(/(.item )(jt\d+)/g);
+          if (whereClause && whereClause.whereLiteralValues && whereClause.whereLiteralValues.length > 0) {
+            Array.prototype.push.apply(data.whereLiteralValues, whereClause.whereLiteralValues);
 
-      if (itemJoinMatches && itemJoinMatches.length) {
-        itemJoinTable = itemJoinMatches[0].match(/(jt\d+)/g);
-      }
+            /* The above `includeNumberBarcodeAliasParam` will produce a clause like:
+             *
+             *   (
+             *     number ~^ $1
+             *     OR barcode ~^ $1
+             *     -- Plus any additional param.attributes here.
+             *   )
+             *
+             * Trim the trailing `)\n` and spaces off so we can add the `OR id IN (` alias clause below.
+             */
+            var trimmedClause = whereClause.whereClause.trim();
+            if (trimmedClause.indexOf(')', trimmedClause.length - 1) !== -1) {
+              extnSql = '  AND ' + trimmedClause.substr(0, (trimmedClause.length - 1)) + /* Remove the `)` from the end. */
+                        '    OR id IN (\n' +
+                        '      SELECT\n' +
+                        '        itemsite_id AS id\n' +
+                        '      FROM itemsite\n' +
+                        '      JOIN (\n' +
+                        '        SELECT\n' +
+                        '          itemalias_item_id AS itemsite_item_id\n' +
+                        '        FROM itemalias\n' +
+                        '        WHERE true\n' +
+                        '          AND itemalias_number ~^ $' + data.whereLiteralValues.length + '\n' +
+                        '          AND (false\n' +
+                        '            OR itemalias_crmacct_id IS NULL\n' +
+                        '            OR itemalias_crmacct_id = $' + data.whereLiteralValues.push(accountId) + '\n' +
+                        '          )\n' +
+                        '      ) AS itemalias_item_id USING (itemsite_item_id)\n' +
+                        '    )\n' +
+                        '  )\n'; /* Add the removed `)` back. */
 
-      /* Get all join table names. */
-      joinTables = clause.joins.match(/(jt\d+)/g).unique();
-    }
-
-    if (!itemJoinTable) {
-      /* public.item is not already joined. Set the default name. */
-      itemJoinTable = 'sidejoin';
-    }
-
-    /* If customer passed, restrict results to item sites allowed to be sold to that customer */
-    if (customerId) {
-      extra += XT.format(' and %1$I.item_id in (' +
-             'select item_id from item where item_sold and not item_exclusive ' +
-             'union ' +
-             'select item_id from xt.custitem where cust_id=${p2} ' +
-             '  and ${p4}::date between effective and (expires - 1) ', [itemJoinTable]);
-
-      if (shiptoId) {
-        extra += 'union ' +
-               'select item_id from xt.shiptoitem where shipto_id=${p3}::integer ' +
-               '  and ${p4}::date between effective and (expires - 1) ';
-      }
-
-      extra += ") ";
-
-      if (!clause.joins) {
-        clause.joins = '';
-      }
-
-      /* public.item is not already joined. Add it here. */
-      if (itemJoinTable === 'sidejoin') {
-        clause.joins = clause.joins + XT.format(' left join item %1$I on t1.%2$I = %1$I.item_id ', [itemJoinTable, backingTypeJoinColumn]);
-      }
-    }
-
-    /* If vendor passed, and vendor can only supply against defined item sources, then restrict results */
-    if (vendorId) {
-      extra +=  XT.format(' and %1$I.item_id in (' +
-              '  select itemsrc_item_id ' +
-              '  from itemsrc ' +
-              '  where itemsrc_active ' +
-              '    and itemsrc_vend_id=%2$I)', [itemJoinTable, vendorId]);
-
-      if (!clause.joins) {
-        clause.joins = '';
-      }
-
-      /* public.item is not already joined. Add it here. */
-      if (itemJoinTable === 'sidejoin') {
-        clause.joins = clause.joins + XT.format(' left join item %1$I on t1.%2$I = %1$I.item_id ', [itemJoinTable, backingTypeJoinColumn]);
-      }
-    }
-
-    if (query.count) {
-      /* Just get the count of rows that match the conditions */
-      sqlCount = 'select count(distinct t1.%3$I) as count from %1$I.%2$I t1 {joins} where {conditions} {extra};';
-      sqlCount = XT.format(sqlCount, [tableNamespace.decamelize(), table.decamelize(), idColumn, backingTypeJoinColumn]);
-      sqlCount = sqlCount.replace(/{conditions}/g, clause.conditions)
-                         .replace(/{extra}/g, extra)
-                         .replace('{joins}', clause.joins)
-                         .replace(/{p2}/g, clause.parameters.length + 1)
-                         .replace(/{p3}/g, clause.parameters.length + 2)
-                         .replace(/{p4}/g, clause.parameters.length + 3);
-
-      if (customerId) {
-        clause.parameters = clause.parameters.concat([customerId, shiptoId, effectiveDate]);
-      }
-
-      if (DEBUG) {
-        XT.debug('ItemSiteListItem sqlCount = ', sqlCount);
-        XT.debug('ItemSiteListItem values = ', clause.parameters);
-      }
-
-      ret.data = plv8.execute(sqlCount, clause.parameters);
-
-      return ret;
-    }
-
-    sql1 = XT.format(
-      sql1 += ') pt1 group by pt1.id{groupBy} {orderBy} %5$s %6$s;',
-      [tableNamespace, table, idColumn, backingTypeJoinColumn, limit, offset]
-    );
-
-    /* Because we query views of views, you can get inconsistent results */
-    /* when doing limit and offest queries without an order by. Add a default. */
-    if (limit && offset && (!orderBy || !orderBy.length) && !clause.orderByColumns) {
-      /* We only want this on sql1, not sql2's clause.orderBy. */
-      clause.orderByColumns = XT.format('order by t1.%1$I', [idColumn]);
-    }
-
-    /* Set columns to include in sub query unions before replacing table alias. */
-    clause.joinGroupColumns = clause.groupByColumns || '';
-
-    /* Change table reference in group by and order by to pt1. */
-    if (clause.groupByColumns && clause.groupByColumns.length) {
-      clause.groupByColumns = clause.groupByColumns.replace(/ t1./g, ' pt1.');
-      clause.groupByColumns = clause.groupByColumns.replace(/,t1./g, ',pt1.');
-      clause.groupByColumns = clause.groupByColumns.replace(/ jt\d+./g, ' pt1.');
-      clause.groupByColumns = clause.groupByColumns.replace(/,jt\d+./g, ',pt1.');
-    }
-    if (clause.orderByColumns && clause.orderByColumns.length) {
-      clause.orderByColumns = clause.orderByColumns.replace(/ t1./g, ' pt1.');
-      clause.orderByColumns = clause.orderByColumns.replace(/,t1./g, ',pt1.');
-      clause.orderByColumns = clause.orderByColumns.replace(/ jt\d+./g, ' pt1.');
-      clause.orderByColumns = clause.orderByColumns.replace(/,jt\d+./g, ',pt1.');
-    }
-    if (joinTables.length) {
-      for (var j=0; j < joinTables.length; j++) {
-        var regex = new RegExp(joinTables + '.', 'g');
-        clause.groupByColumns = clause.groupByColumns.replace(regex, 'pt1.');
-        clause.orderByColumns = clause.orderByColumns.replace(regex, 'pt1.');
-      }
-    }
-
-    /* Query the model */
-    sql1 = sql1.replace(/{conditions}/g, clause.conditions)
-             .replace(/{extra}/g, extra)
-             .replace(/{joins}/g, clause.joins)
-             .replace(/{groupBy}/g, clause.groupByColumns)
-             .replace(/{groupColumns}/g, clause.joinGroupColumns)
-             .replace('{orderBy}', clause.orderByColumns)
-             .replace('{accountId}', accountId)
-             .replace(/{p1}/g, clause.parameters.length + 1)
-             .replace(/{p2}/g, clause.parameters.length + (keySearch ? 2 : 1))
-             .replace(/{p3}/g, clause.parameters.length + (keySearch ? 3 : 2))
-             .replace(/{p4}/g, clause.parameters.length + (keySearch ? 4 : 3));
-
-    if (keySearch) {
-      clause.parameters.push(keySearch);
-    }
-    if (customerId) {
-      clause.parameters = clause.parameters.concat([customerId, shiptoId, effectiveDate]);
-    }
-    if (DEBUG) {
-      XT.debug('ItemSiteListItem sql1 = ', sql1.slice(0,500));
-      XT.debug(sql1.slice(500, 1000));
-      XT.debug(sql1.slice(1000, 1500));
-      XT.debug(sql1.slice(1500, 2000));
-      XT.debug(sql1.slice(2000, 2500));
-      XT.debug(sql1.slice(2500, 3000));
-      XT.debug(sql1.slice(3000, 3500));
-      XT.debug(sql1.slice(3500, 4000));
-      XT.debug(sql1.slice(4000, 4500));
-      XT.debug('ItemSiteListItem parameters = ', clause.parameters);
-    }
-    qry = plv8.execute(sql1, clause.parameters);
-
-    if (!qry.length) {
-      ret.data = [];
-      return ret;
-    }
-
-    qry.forEach(function (row) {
-      ids.push(row.id);
-      idParams.push("$" + counter);
-      counter++;
-    });
-
-    if (orm.lockable) {
-      sql_etags = "select ver_etag as etag, ver_record_id as id " +
-                  "from xt.ver " +
-                  "where ver_table_oid = ( " +
-                    "select pg_class.oid::integer as oid " +
-                    "from pg_class join pg_namespace on relnamespace = pg_namespace.oid " +
-                    /* Note: using $L for quoted literal e.g. 'contact', not an identifier. */
-                    "where nspname = %1$L and relname = %2$L " +
-                  ") " +
-                  "and ver_record_id in ({ids})";
-      sql_etags = XT.format(sql_etags, [tableNamespace, table]);
-      sql_etags = sql_etags.replace('{ids}', idParams.join());
-
-      if (DEBUG) {
-        XT.debug('fetch sql_etags = ', sql_etags);
-        XT.debug('fetch etags_values = ', JSON.stringify(ids));
-      }
-      etags = plv8.execute(sql_etags, ids) || {};
-      ret.etags = {};
-    }
-
-    sql2 = XT.format(sql2, [nameSpace.decamelize(), type.decamelize()]);
-    sql2 = sql2.replace(/{orderBy}/g, clause.orderBy)
-               .replace('{ids}', idParams.join());
-
-    if (DEBUG) {
-      XT.debug('fetch sql2 = ', sql2);
-      XT.debug('fetch values = ', JSON.stringify(ids));
-    }
-
-    ret.data = plv8.execute(sql2, ids) || [];
-
-    for (var i = 0; i < ret.data.length; i++) {
-      if (etags) {
-        /* Add etags to result in pkey->etag format. */
-        for (var j = 0; j < etags.length; j++) {
-          if (etags[j].id === ret.data[i][pkey]) {
-            ret.etags[ret.data[i][nkey]] = etags[j].etag;
+            }
           }
+
+          return extnSql;
+        });
+      }
+
+      /* If customer passed, restrict results to item sites allowed to be sold to that customer */
+      if (customerId || shiptoId) {
+        data.addJoinClauseDynamicExtension(nameSpace, type, function (originPayload) {
+          var extSql =  'JOIN (\n' +
+                        '  SELECT\n' +
+                        '    itemsite_id AS id\n' +
+                        '  FROM itemsite\n' +
+                        '  JOIN custitem(\n' +
+                        '    $' + data.whereLiteralValues.push(customerId) + ',\n' +
+                        '    $' + data.whereLiteralValues.push(shiptoId) + ',\n' +
+                        '    $' + data.whereLiteralValues.push(effectiveDate) + '\n' +
+                        '  ) AS itemsite_item_id USING (itemsite_item_id)\n' +
+                        ') AS cust_itemsites USING (id)\n';
+
+          return extSql;
+        });
+      }
+
+      /* If vendor passed and vendor can only supply against defined item sources, then restrict results. */
+      if (vendorId) {
+        var isItemSourceRequiredSql = 'SELECT vend_restrictpurch FROM vendinfo WHERE vend_id = $1';
+        var isItemSourceRequired = plv8.execute(isItemSourceRequiredSql, [vendorId])[0];
+
+        if (isItemSourceRequired && isItemSourceRequired.vend_restrictpurch) {
+          data.addJoinClauseDynamicExtension(nameSpace, type, function (originPayload) {
+            var extSql =  'JOIN (\n' +
+                          '  SELECT\n' +
+                          '    itemsite_id AS id\n' +
+                          '  FROM itemsite\n' +
+                          '  JOIN (\n' +
+                          '    SELECT\n' +
+                          '      itemsrc_item_id AS itemsite_item_id\n' +
+                          '    FROM itemsrc\n' +
+                          '    WHERE true\n' +
+                          '      AND itemsrc_active\n' +
+                          '      AND itemsrc_vend_id = $' + data.whereLiteralValues.push(vendorId) + '\n' +
+                          '  ) AS itemsite_item_id USING (itemsite_item_id)\n' +
+                          ') AS vend_itemsrc USING (id)\n';
+
+            return extSql;
+          });
         }
       }
     }
 
-    data.sanitize(nameSpace, type, ret.data);
-
-    return ret;
+    return data.fetch(payload);
   };
 
   if (!XM.ItemSiteListItem) { XM.ItemSiteListItem = {}; }
@@ -360,7 +198,11 @@ select xt.install_js('XM','ItemSite','xtuple', $$
     @returns {Array}
   */
   XM.ItemSiteListItem.fetch = function (query) {
-    var result = XM.ItemSitePrivate.fetch("XM.ItemSiteListItem", "public.itemsite", query);
+    var keySearchAttrMap = [
+      'item.number',
+      'item.barcode'
+    ];
+    var result = XM.ItemSitePrivate.fetch("XM.ItemSiteListItem", query, keySearchAttrMap);
     return result.data;
   };
 
@@ -396,12 +238,17 @@ select xt.install_js('XM','ItemSite','xtuple', $$
       query = {},
       result = {};
 
+    var keySearchAttrMap = [
+      'item.number',
+      'item.barcode'
+    ];
+
     if (options) {
       /* Convert from rest_query to XM.Model.query structure. */
       query = XM.Model.restQueryFormat("XM.ItemSiteListItem", options);
 
       /* Perform the query. */
-      return XM.ItemSitePrivate.fetch("XM.ItemSiteListItem", "public.itemsite", query);
+      return XM.ItemSitePrivate.fetch("XM.ItemSiteListItem", query, keySearchAttrMap);
     } else {
       throw new handleError("Bad Request", 400);
     }
@@ -497,7 +344,11 @@ select xt.install_js('XM','ItemSite','xtuple', $$
     @returns {Array}
   */
   XM.ItemSiteRelation.fetch = function (query) {
-    var result = XM.ItemSitePrivate.fetch("XM.ItemSiteRelation", "xt.itemsiteinfo", query);
+    var keySearchAttrMap = [
+      'number',
+      'barcode'
+    ];
+    var result = XM.ItemSitePrivate.fetch("XM.ItemSiteRelation", query, keySearchAttrMap);
     return result.data;
   };
 

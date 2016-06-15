@@ -36,7 +36,7 @@ COMMENT ON VIEW api.creditmemoline IS 'Credit Memo Line';
 
 CREATE OR REPLACE FUNCTION insertcreditmemoline(api.creditmemoline) RETURNS boolean AS
 $insertcreditmemoline$
--- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple.
+-- Copyright (c) 1999-2016 by OpenMFG LLC, d/b/a xTuple.
 -- See www.xtuple.com/CPAL for the full text of the software license.
 DECLARE
   pNew ALIAS FOR $1;
@@ -48,7 +48,8 @@ BEGIN
   FROM cmhead
   WHERE (cmhead_id=getCmheadId(pNew.memo_number, FALSE));
   IF (NOT FOUND) THEN
-    RAISE EXCEPTION 'Credit Memo # % not found', pNew.memo_number;
+    RAISE EXCEPTION 'Credit Memo # % not found [xtuple: insertCreditMemoLine, -1, %]',
+                    pNew.memo_number, pNew.memo_number;
   END IF;
 
   INSERT INTO cmitem ( cmitem_cmhead_id,
@@ -113,7 +114,8 @@ BEGIN
   FROM cmitem
   WHERE ( (cmitem_cmhead_id=getCmheadId(pOld.memo_number, FALSE)) AND (cmitem_linenumber=pOld.line_number) );
   IF (NOT FOUND) THEN
-    RAISE EXCEPTION 'Credit Memo # % Line Number # not found', pOld.memo_number, pOld.line_number;
+    RAISE EXCEPTION 'Credit Memo % Line % not found [xtuple: updateCreditMemoLine, -1, %, %]',
+                     pOld.memo_number, pOld.line_number, pOld.memo_number, pOld.line_number;
   END IF;
 
   UPDATE cmitem

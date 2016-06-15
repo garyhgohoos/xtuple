@@ -23,6 +23,23 @@ BEGIN
     END IF;
   END IF;
 
+  IF TG_OP IN ('INSERT', 'UPDATE') THEN
+    NEW.invchead_billto_address1 := COALESCE(NEW.invchead_billto_address1, '');
+    NEW.invchead_billto_address2 := COALESCE(NEW.invchead_billto_address2, '');
+    NEW.invchead_billto_address3 := COALESCE(NEW.invchead_billto_address3, '');
+    NEW.invchead_billto_city     := COALESCE(NEW.invchead_billto_city, '');
+    NEW.invchead_billto_state    := COALESCE(NEW.invchead_billto_state, '');
+    NEW.invchead_billto_zipcode  := COALESCE(NEW.invchead_billto_zipcode, '');
+    NEW.invchead_shipto_address1 := COALESCE(NEW.invchead_shipto_address1, '');
+    NEW.invchead_shipto_address2 := COALESCE(NEW.invchead_shipto_address2, '');
+    NEW.invchead_shipto_address3 := COALESCE(NEW.invchead_shipto_address3, '');
+    NEW.invchead_shipto_city     := COALESCE(NEW.invchead_shipto_city, '');
+    NEW.invchead_shipto_state    := COALESCE(NEW.invchead_shipto_state, '');
+    NEW.invchead_shipto_zipcode  := COALESCE(NEW.invchead_shipto_zipcode, '');
+    NEW.invchead_billto_country  := COALESCE(NEW.invchead_billto_country, '');
+    NEW.invchead_shipto_country  := COALESCE(NEW.invchead_shipto_country, '');
+  END IF;
+
   IF (TG_OP = 'DELETE') THEN
     DELETE FROM invcheadtax
     WHERE (taxhist_parent_id=OLD.invchead_id);

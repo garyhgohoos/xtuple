@@ -1,6 +1,6 @@
 
 CREATE OR REPLACE FUNCTION _soheadTrigger() RETURNS TRIGGER AS $$
--- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple.
+-- Copyright (c) 1999-2016 by OpenMFG LLC, d/b/a xTuple.
 -- See www.xtuple.com/CPAL for the full text of the software license.
 DECLARE
   _p RECORD;
@@ -240,26 +240,27 @@ BEGIN
       END IF;
 
       IF (TG_OP = 'UPDATE') THEN
+        --Update project references on supply
+        UPDATE pr SET pr_prj_id=NEW.cohead_prj_id
+                   FROM coitem
+                   WHERE ((coitem_cohead_id=NEW.cohead_id)
+                     AND  (coitem_status != 'C')
+                     AND  (coitem_order_type='R')
+                     AND  (coitem_order_id=pr_id));
+
+        PERFORM changeWoProject(coitem_order_id, NEW.cohead_prj_id, TRUE)
+                    FROM coitem
+                    WHERE ((coitem_cohead_id=NEW.cohead_id)
+                      AND  (coitem_status != 'C')
+                      AND  (coitem_order_type='W'));
+
         SELECT true INTO _check
         FROM coitem
         WHERE ( (coitem_status='C')
         AND (coitem_cohead_id=NEW.cohead_id) )
         LIMIT 1;
 
-        IF (NOT FOUND) THEN
-
-        --Update project references on supply
-        UPDATE pr SET pr_prj_id=NEW.cohead_prj_id
-                   FROM coitem
-                   WHERE ((coitem_cohead_id=NEW.cohead_id)
-                   AND  (coitem_order_type='R')
-                   AND  (coitem_order_id=pr_id));
-
-        PERFORM changeWoProject(coitem_order_id, NEW.cohead_prj_id, TRUE)
-                    FROM coitem
-                    WHERE ((coitem_cohead_id=NEW.cohead_id)
-                    AND  (coitem_order_type='W'));
-        ELSE
+        IF (FOUND) THEN
           IF NEW.cohead_prj_id <> COALESCE(OLD.cohead_prj_id,-1) THEN
             RAISE EXCEPTION 'You can not change the project ID on orders with closed lines.';
           END IF;
@@ -418,6 +419,24 @@ BEGIN
         END IF;
       END IF;
     END IF;
+
+    NEW.cohead_billtoaddress1   := COALESCE(NEW.cohead_billtoaddress1, '');
+    NEW.cohead_billtoaddress2   := COALESCE(NEW.cohead_billtoaddress2, '');
+    NEW.cohead_billtoaddress3   := COALESCE(NEW.cohead_billtoaddress3, '');
+    NEW.cohead_billtocity       := COALESCE(NEW.cohead_billtocity, '');
+    NEW.cohead_billtostate      := COALESCE(NEW.cohead_billtostate, '');
+    NEW.cohead_billtozipcode    := COALESCE(NEW.cohead_billtozipcode, '');
+    NEW.cohead_billtocountry    := COALESCE(NEW.cohead_billtocountry, '');
+    NEW.cohead_shiptoaddress1   := COALESCE(NEW.cohead_shiptoaddress1, '');
+    NEW.cohead_shiptoaddress2   := COALESCE(NEW.cohead_shiptoaddress2, '');
+    NEW.cohead_shiptoaddress3   := COALESCE(NEW.cohead_shiptoaddress3, '');
+    NEW.cohead_shiptoaddress4   := COALESCE(NEW.cohead_shiptoaddress4, '');
+    NEW.cohead_shiptoaddress5   := COALESCE(NEW.cohead_shiptoaddress5, '');
+    NEW.cohead_shiptocity       := COALESCE(NEW.cohead_shiptocity, '');
+    NEW.cohead_shiptostate      := COALESCE(NEW.cohead_shiptostate, '');
+    NEW.cohead_shiptozipcode    := COALESCE(NEW.cohead_shiptozipcode, '');
+    NEW.cohead_shiptocountry    := COALESCE(NEW.cohead_shiptocountry, '');
+
   END IF;
 
   IF (fetchMetricBool('SalesOrderChangeLog')) THEN
@@ -521,6 +540,29 @@ BEGIN
     UPDATE pohead SET pohead_comments=NEW.cohead_shipcomments
     FROM poitem JOIN coitem ON (coitem_cohead_id=NEW.cohead_id AND coitem_order_type='P' AND coitem_order_id=poitem_id)
     WHERE (pohead_id=poitem_pohead_id);
+  END IF;
+
+  -- update shipto address on any associated drop ship POs
+  IF (COALESCE(NEW.cohead_shiptoname, TEXT('')) <> COALESCE(OLD.cohead_shiptoname, TEXT('')) OR
+      COALESCE(NEW.cohead_shiptoaddress1, TEXT('')) <> COALESCE(OLD.cohead_shiptoaddress1, TEXT('')) OR
+      COALESCE(NEW.cohead_shiptoaddress2, TEXT('')) <> COALESCE(OLD.cohead_shiptoaddress2, TEXT('')) OR
+      COALESCE(NEW.cohead_shiptoaddress3, TEXT('')) <> COALESCE(OLD.cohead_shiptoaddress3, TEXT('')) OR
+      COALESCE(NEW.cohead_shiptocity, TEXT('')) <> COALESCE(OLD.cohead_shiptocity, TEXT('')) OR
+      COALESCE(NEW.cohead_shiptostate, TEXT('')) <> COALESCE(OLD.cohead_shiptostate, TEXT('')) OR
+      COALESCE(NEW.cohead_shiptozipcode, TEXT('')) <> COALESCE(OLD.cohead_shiptozipcode, TEXT('')) OR
+      COALESCE(NEW.cohead_shiptocountry, TEXT('')) <> COALESCE(OLD.cohead_shiptocountry, TEXT('')) ) THEN
+    UPDATE pohead
+      SET pohead_shiptoname=NEW.cohead_shiptoname,
+          pohead_shiptoaddress1=NEW.cohead_shiptoaddress1,
+          pohead_shiptoaddress2=NEW.cohead_shiptoaddress2,
+          pohead_shiptoaddress3=NEW.cohead_shiptoaddress3,
+          pohead_shiptocity=NEW.cohead_shiptocity,
+          pohead_shiptostate=NEW.cohead_shiptostate,
+          pohead_shiptozipcode=NEW.cohead_shiptozipcode,
+          pohead_shiptocountry=NEW.cohead_shiptocountry
+    FROM poitem JOIN coitem ON (coitem_cohead_id=NEW.cohead_id AND coitem_order_type='P' AND coitem_order_id=poitem_id)
+    WHERE (pohead_id=poitem_pohead_id)
+      AND (pohead_dropship);
   END IF;
 
   RETURN NEW;

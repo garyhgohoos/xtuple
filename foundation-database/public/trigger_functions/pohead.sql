@@ -32,10 +32,25 @@ BEGIN
     PERFORM clearNumberIssue('PoNumber', NEW.pohead_number);
   END IF;
 
-  IF ( (TG_OP = 'INSERT') OR (TG_op = 'UPDATE') ) THEN
+  IF TG_OP IN ('INSERT', 'UPDATE') THEN
     IF (NOT ISNUMERIC(NEW.pohead_number) AND NEW.pohead_saved) THEN
       RAISE EXCEPTION 'Purchase Order Number must be numeric.';
     END IF;
+
+    NEW.pohead_shiptoaddress1 := COALESCE(NEW.pohead_shiptoaddress1, '');
+    NEW.pohead_shiptoaddress2 := COALESCE(NEW.pohead_shiptoaddress2, '');
+    NEW.pohead_shiptoaddress3 := COALESCE(NEW.pohead_shiptoaddress3, '');
+    NEW.pohead_shiptocity     := COALESCE(NEW.pohead_shiptocity, '');
+    NEW.pohead_shiptocountry  := COALESCE(NEW.pohead_shiptocountry, '');
+    NEW.pohead_shiptostate    := COALESCE(NEW.pohead_shiptostate, '');
+    NEW.pohead_shiptozipcode  := COALESCE(NEW.pohead_shiptozipcode, '');
+    NEW.pohead_vendaddress1   := COALESCE(NEW.pohead_vendaddress1, '');
+    NEW.pohead_vendaddress2   := COALESCE(NEW.pohead_vendaddress2, '');
+    NEW.pohead_vendaddress3   := COALESCE(NEW.pohead_vendaddress3, '');
+    NEW.pohead_vendcity       := COALESCE(NEW.pohead_vendcity, '');
+    NEW.pohead_vendcountry    := COALESCE(NEW.pohead_vendcountry, '');
+    NEW.pohead_vendstate      := COALESCE(NEW.pohead_vendstate, '');
+    NEW.pohead_vendzipcode    := COALESCE(NEW.pohead_vendzipcode, '');
   END IF;
 
   IF (TG_OP = 'UPDATE') THEN

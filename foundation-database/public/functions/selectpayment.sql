@@ -69,7 +69,7 @@ BEGIN
     RAISE EXCEPTION 'Apopen not found or invalid document type [xtuple: selectPayment, -1]';
   END IF;
 
-  IF (round(_p.balance,2) < (pDiscount + pAmount)) THEN
+  IF (round(_p.balance,2) < round(pDiscount + pAmount, 2)) THEN
     RAISE EXCEPTION 'Apopen balance less than amount plus discount [xtuple: selectPayment, -2]';
   END IF;
 

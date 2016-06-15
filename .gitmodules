@@ -34,9 +34,6 @@
 [submodule "lib/tools/lib/async"]
 	path = lib/tools/lib/async
 	url = https://github.com/caolan/async.git
-[submodule "lib/enyo-x/lib/gts-plugins"]
-	path = lib/enyo-x/lib/gts-plugins
-	url = https://github.com/gpazo/gts-plugins.git
 [submodule "node-datasource/lib/bootstrap"]
 	path = node-datasource/lib/bootstrap
 	url = https://github.com/twbs/bootstrap.git
@@ -64,3 +61,6 @@
 [submodule "lib/tools/lib/underscore.inflection"]
 	path = lib/tools/lib/underscore.inflection
 	url = https://github.com/jeremyruppel/underscore.inflection.git
+[submodule "lib/enyo-x/lib/gts-plugins"]
+	path = lib/enyo-x/lib/gts-plugins
+	url = https://github.com/xtuple/gts-plugins.git

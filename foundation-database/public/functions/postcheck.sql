@@ -1,6 +1,6 @@
 CREATE OR REPLACE FUNCTION postcheck(integer, integer)
   RETURNS integer AS $$
--- Copyright (c) 1999-2015 by OpenMFG LLC, d/b/a xTuple. 
+-- Copyright (c) 1999-2016 by OpenMFG LLC, d/b/a xTuple. 
 -- See www.xtuple.com/CPAL for the full text of the software license.
 DECLARE
   pcheckid		ALIAS FOR $1;
@@ -67,23 +67,18 @@ BEGIN
       FROM taxauth
       WHERE (taxauth_id=_p.checkhead_recip_id);
     ELSE
-      RETURN -11;
+      RAISE EXCEPTION 'Error Retrieving Check Information [xtuple: postCheck, -11, %]', pcheckid;
     END IF;
   ELSE
-    RETURN -11;
+    RAISE EXCEPTION 'Error Retrieving Check Information [xtuple: postCheck, -11, %]', pcheckid;
   END IF;
 
   IF (_p.checkhead_posted) THEN
-    RETURN -10;
+    RAISE EXCEPTION 'This payment has already been posted [xtuple: postCheck, -10, %]', pcheckid;
   END IF;
 
   IF (_p.checkhead_recip_type = 'C') THEN
-    SELECT checkitem_id FROM checkitem INTO _test
-    WHERE (checkitem_checkhead_id=pcheckid)
-    LIMIT 1;
-    IF (FOUND) THEN
-      _cm := TRUE;
-    END IF;
+    _cm := EXISTS(SELECT 1 FROM checkitem WHERE (checkitem_checkhead_id=pcheckid));
   END IF;
 
   _gltransNote := _t.checkrecip_number || '-' || _t.checkrecip_name ||
@@ -115,20 +110,16 @@ BEGIN
       END IF; -- recip type
 
     ELSE
-      IF (_cm) THEN
-        _credit_glaccnt := findARAccount(_p.checkhead_recip_id);
-      ELSE
-        SELECT expcat_exp_accnt_id INTO _credit_glaccnt
+      SELECT expcat_exp_accnt_id INTO _credit_glaccnt
         FROM expcat
         WHERE (expcat_id=_p.checkhead_expcat_id);
         IF (NOT FOUND) THEN
-          RETURN -12;
+          RAISE EXCEPTION 'Could not determine the Expense Account for this Expense Category [xtuple: postCheck, -12, %]', _p.checkhead_expcat_id;
         END IF;
-      END IF;
     END IF;
 
     IF (COALESCE(_credit_glaccnt, -1) < 0) THEN
-      RETURN -13;
+      RAISE EXCEPTION 'Could not determine the Credit GL Account [xtuple: postCheck, -13]';
     END IF;
 
     -- Expense Category posting
@@ -245,6 +236,10 @@ BEGIN
                         _p.checkhead_checkdate)
               INTO _exchGainTmp;
       END IF;
+
+      IF (_r.apopen_doctype = 'C') THEN
+        _exchGainTmp = _exchGainTmp * -1;
+      END IF; 
       _exchGain := _exchGain + _exchGainTmp;
 
       PERFORM insertIntoGLSeries( _sequence, _t.checkrecip_gltrans_source,

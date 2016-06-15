@@ -211,11 +211,10 @@ BEGIN
   IF (TG_OP = 'INSERT') THEN
     PERFORM postEvent('POitemCreate', 'P', NEW.poitem_id,
                       itemsite_warehous_id,
-                      (pohead_number || '-' || NEW.poitem_linenumber || ': ' || item_number),
+                      formatPoitemNumber(poitem_id, TRUE),
                       NULL, NULL, NULL, NULL)
-    FROM pohead JOIN itemsite ON (itemsite_id=NEW.poitem_itemsite_id)
-                JOIN item ON (item_id=itemsite_item_id)
-    WHERE (pohead_id=NEW.poitem_pohead_id)
+    FROM poitem JOIN itemsite ON (itemsite_id=poitem_itemsite_id)
+    WHERE (poitem_id=NEW.poitem_id)
       AND (NEW.poitem_duedate <= (CURRENT_DATE + itemsite_eventfence));
   END IF;
 

@@ -26,7 +26,7 @@ BEGIN
   END LOOP;
 
   UPDATE bankaccnt
-  SET bankaccnt_nextchknum = (bankaccnt_nextchknum + 1)
+  SET bankaccnt_nextchknum = (_nextChkNumber + 1)
   WHERE (bankaccnt_id=pBankaccntid);
 
   RETURN _nextChkNumber;

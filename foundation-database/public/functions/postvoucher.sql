@@ -1,6 +1,6 @@
 CREATE OR REPLACE FUNCTION postvoucher(pVoheadid integer, pPostCosts boolean)
   RETURNS integer AS $$
--- Copyright (c) 1999-2015 by OpenMFG LLC, d/b/a xTuple.
+-- Copyright (c) 1999-2016 by OpenMFG LLC, d/b/a xTuple.
 -- See www.xtuple.com/CPAL for the full text of the software license.
 BEGIN
   RETURN postVoucher(pVoheadid, fetchJournalNumber('AP-VO'), pPostCosts);
@@ -11,7 +11,7 @@ CREATE OR REPLACE FUNCTION postvoucher(pVoheadid integer,
                                        pJournalNumber integer,
                                        pPostCosts boolean)
   RETURNS integer AS $$
--- Copyright (c) 1999-2015 by OpenMFG LLC, d/b/a xTuple.
+-- Copyright (c) 1999-2016 by OpenMFG LLC, d/b/a xTuple.
 -- See www.xtuple.com/CPAL for the full text of the software license.
 DECLARE
   _sequence INTEGER;
@@ -460,8 +460,7 @@ BEGIN
 
 --  Check the P/O items and if they are all closed go ahead
 --  and close the P/O head.
-  IF ( (SELECT (count(*) < 1)
-          FROM vohead, poitem
+  IF ( NOT EXISTS(SELECT 1 FROM vohead, poitem
          WHERE ((vohead_pohead_id=poitem_pohead_id)
            AND  (poitem_status<>'C')
            AND  (vohead_id=pVoheadid) ) ) ) THEN

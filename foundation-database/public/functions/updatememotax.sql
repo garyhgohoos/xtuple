@@ -1,6 +1,6 @@
 CREATE OR REPLACE FUNCTION updatememotax(pdocsource text, pdoctype text, pMemoid integer, ptaxzone integer, pdate date, pcurr integer, pamount numeric)
   RETURNS numeric AS $func$
--- Copyright (c) 1999-2015 by OpenMFG LLC, d/b/a xTuple. 
+-- Copyright (c) 1999-2016 by OpenMFG LLC, d/b/a xTuple. 
 -- See www.xtuple.com/CPAL for the full text of the software license.
 DECLARE
    _table       text;
@@ -18,6 +18,12 @@ DECLARE
                                           taxhist_tax_id, taxhist_tax, 
                                           taxhist_taxtype_id, taxhist_parent_id  )
 	                   VALUES (0, 0, 0, '%s'::DATE, %s, %s, %s, %s); $$;
+   _revsql      text := $$INSERT INTO %s (taxhist_basis, taxhist_percent,
+                                          taxhist_amount,taxhist_docdate, 
+                                          taxhist_tax_id, taxhist_tax, 
+                                          taxhist_taxtype_id, taxhist_parent_id, 
+                                          taxhist_reverse_charge)
+	                   VALUES (0, 0, 0, '%s'::DATE, %s, (%s * -1), %s, %s, TRUE); $$;
 BEGIN
 -- A/P memos
    IF (pDocSource = 'AP') THEN
@@ -43,7 +49,7 @@ BEGIN
      SELECT DISTINCT COALESCE(taxass_taxtype_id, getadjustmenttaxtypeid()) AS taxass_taxtype_id
      FROM tax
      JOIN taxass ON (tax_id=taxass_tax_id)
-     WHERE ((CASE WHEN pDocSource = 'AP' THEN tax_apmemo ELSE tax_armemo END)
+     WHERE ((taxass_memo_apply)
        AND (taxass_taxtype_id = getadjustmenttaxtypeid()
               OR taxass_taxtype_id IS NULL)
       AND  (taxass_taxzone_id = ptaxzone))
@@ -67,6 +73,14 @@ BEGIN
        -- Insert Tax Line
        EXECUTE format(_sql, _table, pDate, _taxd.taxdetail_tax_id, _taxamount, _taxt.taxass_taxtype_id, pMemoid);
 
+       -- Check for and post reverse VAT charges
+       IF (EXISTS(SELECT 1 FROM taxass 
+                  WHERE ((taxass_reverse_tax) 
+                  AND (COALESCE(taxass_taxzone_id, -1) = ptaxzone)
+                  AND (COALESCE(taxass_taxtype_id, -1) IN (getAdjustmentTaxTypeId(), -1))))) THEN      
+          EXECUTE format(_revsql, _table, pDate, _taxd.taxdetail_tax_id, _taxamount, _taxt.taxass_taxtype_id, pMemoid);
+       END IF;
+       
        _total = _total + _taxamount;
        -- _subtotal = _subtotal - _taxamount;
        

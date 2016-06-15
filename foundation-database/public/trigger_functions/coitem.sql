@@ -1,4 +1,4 @@
-CREATE OR REPLACE FUNCTION _soitemTrigger() RETURNS TRIGGER AS $$
+﻿CREATE OR REPLACE FUNCTION _soitemTrigger() RETURNS TRIGGER AS $$
 -- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple.
 -- See www.xtuple.com/CPAL for the full text of the software license.
 DECLARE
@@ -242,6 +242,7 @@ CREATE TRIGGER soitemTrigger
 CREATE OR REPLACE FUNCTION _soitemBeforeTrigger() RETURNS TRIGGER AS $$
 -- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple.
 -- See www.xtuple.com/CPAL for the full text of the software license.
+-- 20160229:rks removed coitem_imported test around charass insert
 DECLARE
   _check NUMERIC;
   _itemNumber TEXT;
@@ -261,22 +262,20 @@ BEGIN
   IF (TG_OP = 'INSERT') THEN
 
     -- If this is imported, go ahead and insert default characteristics
-    IF (NEW.coitem_imported) THEN
-      INSERT INTO charass (charass_target_type, charass_target_id, charass_char_id, charass_value, charass_price)
-      SELECT 'SI', NEW.coitem_id, char_id, charass_value,
-             itemcharprice(item_id,char_id,charass_value,cohead_cust_id,cohead_shipto_id,NEW.coitem_qtyord,cohead_curr_id,cohead_orderdate)
-        FROM (
-           SELECT DISTINCT char_id, char_name, charass_value, item_id, cohead_cust_id, cohead_shipto_id, cohead_curr_id, cohead_orderdate
-             FROM cohead, charass, char, itemsite, item
-            WHERE((itemsite_id=NEW.coitem_itemsite_id)
-              AND (itemsite_item_id=item_id)
-              AND (charass_target_type='I')
-              AND (charass_target_id=item_id)
-              AND (charass_default)
-              AND (char_id=charass_char_id)
-              AND (cohead_id=NEW.coitem_cohead_id))
-           ORDER BY char_name) AS data;
-    END IF;
+    INSERT INTO charass (charass_target_type, charass_target_id, charass_char_id, charass_value, charass_price)
+    SELECT 'SI', NEW.coitem_id, char_id, charass_value,
+           itemcharprice(item_id,char_id,charass_value,cohead_cust_id,cohead_shipto_id,NEW.coitem_qtyord,cohead_curr_id,cohead_orderdate)
+      FROM (
+         SELECT DISTINCT char_id, char_name, charass_value, item_id, cohead_cust_id, cohead_shipto_id, cohead_curr_id, cohead_orderdate
+           FROM cohead, charass, char, itemsite, item
+          WHERE((itemsite_id=NEW.coitem_itemsite_id)
+            AND (itemsite_item_id=item_id)
+            AND (charass_target_type='I')
+            AND (charass_target_id=item_id)
+            AND (charass_default)
+            AND (char_id=charass_char_id)
+            AND (cohead_id=NEW.coitem_cohead_id))
+         ORDER BY char_name) AS data;
   END IF;
 
   -- Create work order and process if flagged to do so
@@ -433,6 +432,8 @@ CREATE TRIGGER soitemBeforeTrigger
 CREATE OR REPLACE FUNCTION _soitemAfterTrigger() RETURNS TRIGGER AS $$
 -- Copyright (c) 1999-2014 by OpenMFG LLC, d/b/a xTuple.
 -- See www.xtuple.com/CPAL for the full text of the software license.
+-- 20160211:rks added new.coitem_memo to explodekit call when UPDATE
+
 DECLARE
   _check NUMERIC;
   _r RECORD;
@@ -464,6 +465,7 @@ BEGIN
      AND (itemsite_id=_rec.coitem_itemsite_id));
   _kit := COALESCE(_kit, false);
   _fractional := COALESCE(_fractional, false);
+
 
   IF (_kit) THEN
   -- Kit Processing
@@ -500,9 +502,9 @@ BEGIN
              RAISE EXCEPTION 'Error deleting kit components: deleteSoItem(integer) Error:%', _result;
           END IF;
         END LOOP;
-
+        --20160211:rks added NEW.coitem_memo
         PERFORM explodeKit(NEW.coitem_cohead_id, NEW.coitem_linenumber, 0, NEW.coitem_itemsite_id,
-                           NEW.coitem_qtyord, NEW.coitem_scheddate, NEW.coitem_promdate);
+                           NEW.coitem_qtyord, NEW.coitem_scheddate, NEW.coitem_promdate, NEW.coitem_memo);
       END IF;
       IF ( (NEW.coitem_qtyord <> OLD.coitem_qtyord) OR
            (NEW.coitem_cos_accnt_id <> OLD.coitem_cos_accnt_id) ) THEN
@@ -587,11 +589,9 @@ BEGIN
       IF ((NEW.coitem_status = 'X') AND (OLD.coitem_status <> 'X')) THEN
         PERFORM postEvent('PoItemSoCancelled', 'P', poitem_id,
                           itemsite_warehous_id,
-                          (pohead_number || '-' || poitem_linenumber || ':' || item_number),
+                          formatPoitemNumber(poitem_id, TRUE),
                           NULL, NULL, NULL, NULL)
         FROM poitem JOIN itemsite ON (itemsite_id=poitem_itemsite_id)
-                    JOIN item ON (item_id=itemsite_item_id)
-                    JOIN pohead ON (pohead_id=poitem_pohead_id)
         WHERE ( (poitem_id=OLD.coitem_order_id)
           AND   (poitem_duedate <= (CURRENT_DATE + itemsite_eventfence)) );
       --If soitem notes changed
@@ -858,3 +858,50 @@ CREATE TRIGGER coitemBeforeImpTaxTypeDef
   ON coitem
   FOR EACH ROW
   EXECUTE PROCEDURE _coitemBeforeImpTaxTypeDefTrigger();
+
+
+CREATE OR REPLACE FUNCTION _coitemImportedPOPRbeforetrigger()
+  RETURNS trigger AS
+$BODY$
+-- Copyright (c) 1999-2016 by OpenMFG LLC, d/b/a xTuple.
+-- See www.xtuple.com/CPAL for the full text of the software license.
+DECLARE
+  _isImported BOOLEAN;
+  _setOrderType RECORD;
+
+BEGIN
+
+  IF(TG_OP = 'INSERT') THEN
+    SELECT
+      cohead_imported INTO _isImported
+    FROM cohead
+    WHERE cohead_id = NEW.coitem_cohead_id;
+
+    IF (_isImported) THEN
+      SELECT
+        itemsite_createsopo,
+        itemsite_createsopr INTO _setOrderType
+      FROM itemsite
+      WHERE itemsite_id = NEW.coitem_itemsite_id;
+
+      IF (_setOrderType.itemsite_createsopo) THEN
+        NEW.coitem_order_type = 'P';
+        NEW.coitem_order_id = -1;
+      ELSIF (_setOrderType.itemsite_createsopr) THEN
+        NEW.coitem_order_type = 'R';
+        NEW.coitem_order_id = -1;
+      END IF;
+    END IF;
+  END IF;
+
+  RETURN NEW;
+END;
+$BODY$
+  LANGUAGE plpgsql VOLATILE;
+
+SELECT dropIfExists('TRIGGER', 'coitemImportedPOPRbeforetrigger');
+CREATE TRIGGER coitemImportedPOPRbeforetrigger
+  BEFORE INSERT
+  ON coitem
+  FOR EACH ROW
+  EXECUTE PROCEDURE _coitemImportedPOPRbeforetrigger();

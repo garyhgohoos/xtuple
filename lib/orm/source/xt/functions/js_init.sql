@@ -289,8 +289,7 @@ return (function () {
 
     // TODO, this could be changed to "LOG" and you would need to set: client_min_messages = log
     // Then you would not get any of the "RAISE DEBUG;" messages from the PL/pgSQL code.
-    /* Do a hard trim to 900 so something prints. */
-    plv8.elog(DEBUG1, (msg + message).substring(0, 900));
+    plv8.execute('SELECT xt.raise_debug($1)', [msg + message]);
   }
 
   /**

@@ -271,6 +271,22 @@ BEGIN
         END IF;
       END IF;
     END IF;
+
+    NEW.quhead_billtoaddress1   := COALESCE(NEW.quhead_billtoaddress1, '');
+    NEW.quhead_billtoaddress2   := COALESCE(NEW.quhead_billtoaddress2, '');
+    NEW.quhead_billtoaddress3   := COALESCE(NEW.quhead_billtoaddress3, '');
+    NEW.quhead_billtocity       := COALESCE(NEW.quhead_billtocity, '');
+    NEW.quhead_billtostate      := COALESCE(NEW.quhead_billtostate, '');
+    NEW.quhead_billtozip        := COALESCE(NEW.quhead_billtozip, '');
+    NEW.quhead_billtocountry    := COALESCE(NEW.quhead_billtocountry, '');
+    NEW.quhead_shiptoaddress1   := COALESCE(NEW.quhead_shiptoaddress1, '');
+    NEW.quhead_shiptoaddress2   := COALESCE(NEW.quhead_shiptoaddress2, '');
+    NEW.quhead_shiptoaddress3   := COALESCE(NEW.quhead_shiptoaddress3, '');
+    NEW.quhead_shiptocity       := COALESCE(NEW.quhead_shiptocity, '');
+    NEW.quhead_shiptostate      := COALESCE(NEW.quhead_shiptostate, '');
+    NEW.quhead_shiptozipcode    := COALESCE(NEW.quhead_shiptozipcode, '');
+    NEW.quhead_shiptocountry    := COALESCE(NEW.quhead_shiptocountry, '');
+
   END IF;
 
   IF (fetchMetricBool('SalesOrderChangeLog')) THEN
