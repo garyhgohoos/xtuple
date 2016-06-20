@@ -508,6 +508,7 @@ BEGIN
   -- Timestamps
   IF (TG_OP = 'INSERT') THEN
     NEW.cohead_created := now();
+    NEW.cohead_lastupdated := now();
   ELSIF (TG_OP = 'UPDATE') THEN
     NEW.cohead_lastupdated := now();
   END IF;
